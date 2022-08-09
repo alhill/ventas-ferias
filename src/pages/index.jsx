@@ -4,6 +4,8 @@ import Register from './Register'
 import Products from './Products'
 import Events from './Events'
 import Event from './Event'
+import EventStatus from './EventStatus'
+import NewSale from './NewSale'
 
 export {
     Home,
@@ -11,5 +13,7 @@ export {
     Register,
     Products,
     Events,
-    Event
+    Event,
+    EventStatus,
+    NewSale
 }
