@@ -2,15 +2,22 @@ import React from 'react'
 import styled from 'styled-components'
 import { Button, Tag } from 'antd'
 import { MinusOutlined, PlusOutlined } from '@ant-design/icons'
+import _ from 'lodash'
 
 const ProductBtn = ({ product, mutateStatus, qty, modalPack, setModalPack }) => {
+    const firstTag = _.get(product, "tags[0]", "") 
+    const color = firstTag ? ([...firstTag].reduce((acc, it) => acc * it.charCodeAt(), 123123) % 16777215).toString(16) : "FFFFFF"
     return (
-        <Wrapper>
+        <Wrapper color={"#" + color}>
             <Qty>
                 {!!qty && <Tag>{ qty?.qty || qty }</Tag>}
             </Qty>
 
-            <p>{ product.name }</p>
+            <p style={{
+                textShadow: "0px 0px 8px white",
+                fontWeight: "bold",
+                marginBottom: "6px"
+            }}>{ product.name }</p>
             {(qty?.qty || qty) > 0 && <strong>{(qty?.qty || qty) * product.price }€</strong> }
 
             <BtnWrap>
@@ -42,8 +49,8 @@ const ProductBtn = ({ product, mutateStatus, qty, modalPack, setModalPack }) => 
 }
 
 const Wrapper = styled.div`
-    width: 110px;
-    height: 110px;
+    width: 105px;
+    height: 140px;
     border-radius: 4px;
     border: 1px solid gainsboro;
     margin: 4px;
@@ -52,6 +59,7 @@ const Wrapper = styled.div`
     display: flex;
     flex-direction: column;
     justify-content: space-between;
+    background-color: ${({ color }) => color};
 
 `
 

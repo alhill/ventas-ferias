@@ -99,7 +99,7 @@ const Events = () => {
                                 })
                             }}
                         ><EditOutlined /></Tag>
-                        &nbsp;
+                        {/* &nbsp;
                         <Tag 
                             color="volcano"
                             onClick={() => {
@@ -114,7 +114,7 @@ const Events = () => {
                                     }
                                 })
                             }}
-                        ><DeleteOutlined /></Tag>
+                        ><DeleteOutlined /></Tag> */}
                     </div>
                 )
             }

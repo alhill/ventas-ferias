@@ -30,7 +30,10 @@ const Event = () => {
     const [loadingSale, setLoadingSale] = useState(false)
 
     const filterByTag = (products, tag) => {
-        const filteredProducts = products.filter(p => !tag || p.tags.includes(selectedTag))
+        const filteredProducts = products
+            .filter(p => !tag || p.tags.includes(selectedTag))
+            .sort((a, b) => a.tags[0] > b.tags[1] ? 1 : -1)
+            .sort((a, b) => a.name > b.name ? 1 : -1)
         setFilteredProducts(filteredProducts)
     }
 
@@ -118,7 +121,7 @@ const Event = () => {
                 value={selectedTag}
                 style={{ display: "flex", flexWrap: "wrap", justifyContent: "center" }}
             >
-                { tags.map((t, i) => {
+                { [...tags, "Packs"].map((t, i) => {
                     return (
                         <Radio.Button 
                             key={"tag-"+i}
@@ -131,20 +134,23 @@ const Event = () => {
 
             <br />
 
-            <ProductWrapper>
-                { filteredProducts.map(fp => {
-                    return (
-                        <ProductBtn 
-                            key={`fp-${fp.id}`}
-                            product={fp}
-                            mutateStatus={mutateStatus}
-                            qty={saleStatus[fp.id] || 0}
-                        />
-                    )
-                })}
-            </ProductWrapper>
-
-            <br />
+            { selectedTag !== "Packs" && (
+                <div>
+                    <ProductWrapper>
+                        { filteredProducts.map(fp => {
+                            return (
+                                <ProductBtn
+                                    key={`fp-${fp.id}`}
+                                    product={fp}
+                                    mutateStatus={mutateStatus}
+                                    qty={saleStatus[fp.id] || 0}
+                                />
+                            )
+                        })}
+                    </ProductWrapper>
+                     <br />
+                </div>
+            )}
 
             <h4>Packs</h4>
             <ProductWrapper>
