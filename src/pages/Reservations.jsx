@@ -1,4 +1,4 @@
-import { Button, Modal, Input, Table, Tag, Form, Select, message, DatePicker, Switch } from 'antd'
+import { Button, Modal, Input, Table, Tag, Form, Select, message, DatePicker, Switch, Collapse } from 'antd'
 import { collection, query, doc, getDocs, getDoc, addDoc, setDoc, deleteDoc, onSnapshot, updateDoc } from "firebase/firestore";
 import React, { useEffect, useState } from 'react'
 import { Container } from '../components'
@@ -9,6 +9,7 @@ import estaSeguroDeQue from '../utils/estaSeguroDeQue';
 import { useHistory, Link } from 'react-router-dom';
 import moment from 'moment'
 import { basicSorter } from '../utils';
+import styled from 'styled-components';
 
 const Reservations = () => {
     const { firestore } = useFirebase()
@@ -167,7 +168,15 @@ const Reservations = () => {
                             }}
                         ><EyeOutlined /></Tag>
                         &nbsp;
-                        <Tag onClick={() => setDeliverModal({ visible: true, item })}><ExportOutlined /></Tag>
+                        <Tag onClick={() => {
+                            setDeliverModal({ 
+                                visible: true, 
+                                item,
+                                totalPrice: (item?.items || []).reduce((acc, it) => {
+                                    return acc + (parseInt(it.qty) * parseFloat(it.price))
+                                }, 0)
+                            })
+                        }}><ExportOutlined /></Tag>
                         &nbsp;
                         { !item?.completed && (
                             <Tag 
@@ -353,57 +362,99 @@ const Reservations = () => {
                 onCancel={() => setDeliverModal({ visible: false })}
             >
                 <h4>Entrega de productos</h4>
-                <Table
-                    columns={[
-                        {
-                            title: "Nombre",
-                            key: "name",
-                            render: p => {
-                                const relatedProduct = (products || []).find(prod => prod?.id === p?.id)
-                                return relatedProduct?.name
+                <div style={{ width: "100%", overflowX: "auto" }}>
+                    <Table
+                        columns={[
+                            {
+                                title: "Nombre",
+                                key: "name",
+                                render: p => {
+                                    const relatedProduct = (products || []).find(prod => prod?.id === p?.id)
+                                    return relatedProduct?.name
+                                }
+                            },
+                            {
+                                title: "Cantidad",
+                                dataIndex: "qty",
+                                key: "qty",
+                                sorter: (a, b) => basicSorter(a, b, "qty")
+                            },
+                            {
+                                title: "Entregadas",
+                                dataIndex: "delivered",
+                                key: "delivered",
+                                sorter: (a, b) => basicSorter(a, b, "delivered"),
+                                render: n => n || 0
+                            },
+                            {
+                                title: "Se entregan",
+                                key: "deliveredQty",
+                                render: item => {
+                                    return (
+                                        <Input
+                                            type="number"
+                                            value={(deliverModal?.deliverQtys || []).find(dq => dq.id === item.id)?.qty || 0}
+                                            onChange={evt => {
+                                                const deliverModalMod = {
+                                                    ...deliverModal,
+                                                    deliverQtys: [
+                                                        ...(deliverModal.deliverQtys || []).filter(dq => dq.id !== item.id),
+                                                        {
+                                                            id: item.id,
+                                                            price: item.price,
+                                                            qty: evt.target.value
+                                                        }
+                                                    ],
+                                                }
+                                                const deliverModalMod2 = {
+                                                    ...deliverModalMod,
+                                                    partialPrice: (deliverModalMod?.deliverQtys || []).reduce((acc, it) => {
+                                                        return acc + (parseInt(it.qty) * parseFloat(it.price))
+                                                    }, 0)
+                                                }
+                                                setDeliverModal(deliverModalMod2)
+                                            }}
+                                        />
+                                    )
+                                }
                             }
-                        },
-                        {
-                            title: "Cantidad",
-                            dataIndex: "qty",
-                            key: "qty",
-                            sorter: (a, b) => basicSorter(a, b, "qty")
-                        },
-                        {
-                            title: "Ya entregadas",
-                            dataIndex: "delivered",
-                            key: "delivered",
-                            sorter: (a, b) => basicSorter(a, b, "delivered"),
-                            render: n => n || 0
-                        },
-                        {
-                            title: "Se entregan",
-                            key: "deliveredQty",
-                            render: item => {
-                                return (
-                                    <Input
-                                        type="number"
-                                        value={(deliverModal?.deliverQtys || []).find(dq => dq.id === item.id)?.qty || 0}
-                                        onChange={evt => {
-                                            setDeliverModal({
-                                                ...deliverModal,
-                                                deliverQtys: [
-                                                    ...(deliverModal.deliverQtys || []).filter(dq => dq.id !== item.id),
-                                                    {
-                                                        id: item.id,
-                                                        qty: evt.target.value
-                                                    }
-                                                ]
-                                            })
-                                        }}
+                        ]}
+                        dataSource={deliverModal?.item?.items || []}
+                        rowKey="id"
+                    />
+                </div>
+                
+                <br />
+                <p style={{ marginBottom: 0 }}><strong>Importe total: </strong>{ deliverModal?.totalPrice || 0}€</p>
+                <p><strong>Importe de los elementos seleccionados: </strong>{deliverModal?.partialPrice || 0}€</p>
+
+                <SmallHeaderCollapse>
+                    <Collapse>
+                        <Collapse.Panel header="Restador" key="1">
+                            <Form>
+                                <p><strong>Importe: </strong>{ deliverModal.partialPrice || deliverModal.totalPrice }€</p>
+                                <Form.Item
+                                    label="Me pagan..."
+                                >
+                                    <Input 
+                                        type="number" 
+                                        suffix="€" 
+                                        value={deliverModal?.inputMoney}
+                                        onChange={evt => setDeliverModal({
+                                            ...deliverModal,
+                                            inputMoney: parseInt(evt.target.value || 0)
+                                        })}
                                     />
-                                )
-                            }
-                        }
-                    ]}
-                    dataSource={deliverModal?.item?.items || []}
-                    rowKey="id"
-                />
+                                </Form.Item>
+                                <Form.Item
+                                    label="Devuelvo..."
+                                >
+                                    <Input type="number" suffix="€" disabled value={(deliverModal?.inputMoney || 0) - (deliverModal.partialPrice || deliverModal.totalPrice)}/>
+                                </Form.Item>
+                            </Form>
+                        </Collapse.Panel>
+                    </Collapse>
+                </SmallHeaderCollapse>
 
                 <div style={{ width: "100%", display: "flex", justifyContent: "space-evenly" }}>
                     <Button onClick={() => setDeliverModal({ visible: false })}>Cerrar</Button>
@@ -427,5 +478,12 @@ const Reservations = () => {
         </Container>
     )
 }
+
+const SmallHeaderCollapse = styled.div`
+    margin: 1em 0;
+    .ant-collapse-header{
+        padding: 2px 1em !important;
+    }
+`
 
 export default Reservations

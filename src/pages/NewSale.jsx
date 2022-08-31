@@ -261,8 +261,7 @@ const Event = () => {
                         <Form.Item
                             name="address"
                             label="Dirección/Número"
-                            rules={[{ required: true }]}
-                            >
+                        >
                             <Input />
                         </Form.Item>
                     )}
@@ -354,6 +353,7 @@ const Event = () => {
                                     total: calculateTotal(),
                                     ...dataForm,
                                     completed: !isReservation,
+                                    ...(dataForm?.observations ? { observations: dataForm.observations } : {}),
                                     items: items.map(it => {
                                         if(isReservation){ return { ...it, delivered: 0 }}
                                         else { return it }

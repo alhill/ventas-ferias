@@ -2,11 +2,29 @@ import React, { useState } from "react";
 import { Redirect, Switch, Route } from "react-router-dom";
 import { Home, Login, Register, Products, Events, Event, NewSale, EventStatus, Reservations } from "./pages"
 import { useAuthentication } from "./context/authentication";
+import { Spin } from "antd";
 
 export const App = () => {
   const { isFetchingUser, isLogged } = useAuthentication();
 
-  if (!isLogged && isFetchingUser) return <h1>Cargando...</h1>;
+  if (!isLogged && isFetchingUser) return (
+      <div style={{
+        width: "100%",
+        height: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center"
+      }}>
+        <div style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center"
+        }}>
+          <h3>Cargando</h3>
+          <Spin />
+        </div>
+      </div>
+  )
 
   return isLogged ? <AuthenticatedApp /> : <UnauthenticatedApp />;
 };
