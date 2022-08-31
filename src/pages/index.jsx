@@ -5,6 +5,7 @@ import Products from './Products'
 import Events from './Events'
 import Event from './Event'
 import EventStatus from './EventStatus'
+import Reservations from './Reservations'
 import NewSale from './NewSale'
 
 export {
@@ -15,5 +16,6 @@ export {
     Events,
     Event,
     EventStatus,
+    Reservations,
     NewSale
 }

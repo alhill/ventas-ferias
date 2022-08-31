@@ -26,8 +26,10 @@ const Event = () => {
     const [modalEndSale, setModalEndSale] = useState({ visible: false })
     const [modalTotal, setModalTotal] = useState()
     const [paymentMethod, setPaymentMethod] = useState()
+    const [reservationMethod, setReservationMethod] = useState()
     const [inputMoney, setInputMoney] = useState()
     const [loadingSale, setLoadingSale] = useState(false)
+    const [isReservation, setReservation] = useState(false)
 
     const filterByTag = (products, tag) => {
         const filteredProducts = products
@@ -55,6 +57,9 @@ const Event = () => {
     }
 
     useEffect(() => {
+        const isReservation = history.location.pathname === "/nueva-reserva"
+        setReservation(isReservation)
+
         const unsubscribeProducts = onSnapshot(
             query(collection(firestore, "products")),
             qs => {
@@ -71,10 +76,12 @@ const Event = () => {
         );
 
         (async () => {
-            const event = (await getDoc(doc(collection(firestore, "events"), id))).data()
+            if(!isReservation){
+                const event = (await getDoc(doc(collection(firestore, "events"), id))).data()
+                setEvent(event)
+            }
             const config = (await getDoc(doc(collection(firestore, "config"), "1"))).data()
             const tags = config?.tags || []
-            setEvent(event)
             setTags(tags)
         })()
 
@@ -105,13 +112,13 @@ const Event = () => {
     return (
         <Container>
             <Link to={`/eventos/${id}`}>&lt; Volver</Link>
-            <h2>Nueva venta {event?.name}</h2>
+            <h2>Nueva {isReservation ? "reserva" : `venta {event?.name}`}</h2>
 
             <Button
                 onClick={() => setModalEndSale({
                     visible: true
                 })}
-            >Acabar venta</Button>
+            >Acabar {isReservation ? "reserva" : "venta"}</Button>
 
             <br />
 
@@ -227,18 +234,59 @@ const Event = () => {
                     layout="vertical"
                 >
                     <Form.Item
-                        name="paymentMethod"
-                        label="Forma de pago"
-                        rules={[{ required: true }]}
+                        name="name"
+                        label="Nombre del cliente"
+                        rules={isReservation ? [{ required: true }] : []}
                     >
-                        <Select
-                            onChange={evt => {
-                                setPaymentMethod(evt)
-                            }}
+                        <Input />
+                    </Form.Item>
+                    { isReservation && (
+                        <Form.Item
+                            label="Método de contacto"
+                            rules={[{ required: true }]}
                         >
-                            <Select.Option value="Efectivo">Efectivo</Select.Option>
-                            <Select.Option value="Bizum">Bizum</Select.Option>
-                        </Select>
+                            <Select
+                                onChange={evt => {
+                                    setReservationMethod(evt)
+                                }}
+                            >
+                                <Select.Option value="Email">Email</Select.Option>
+                                <Select.Option value="Instagram">Instagram</Select.Option>
+                                <Select.Option value="Teléfono/Whatsapp">Teléfono/Whatsapp</Select.Option>
+                                <Select.Option value="Otros">Otros</Select.Option>
+                            </Select>
+                        </Form.Item>
+                    )}
+                    { isReservation && (
+                        <Form.Item
+                            name="address"
+                            label="Dirección/Número"
+                            rules={[{ required: true }]}
+                            >
+                            <Input />
+                        </Form.Item>
+                    )}
+                    { !isReservation && (
+                        <Form.Item
+                            name="paymentMethod"
+                            label="Forma de pago"
+                            rules={[{ required: true }]}
+                            >
+                            <Select
+                                onChange={evt => {
+                                    setPaymentMethod(evt)
+                                }}
+                                >
+                                <Select.Option value="Efectivo">Efectivo</Select.Option>
+                                <Select.Option value="Bizum">Bizum</Select.Option>
+                            </Select>
+                        </Form.Item>
+                    )}
+                    <Form.Item
+                        name="observations"
+                        label="Observaciones"
+                    >
+                        <Input.TextArea />
                     </Form.Item>
 
                     { paymentMethod === "Efectivo" && (
@@ -280,6 +328,9 @@ const Event = () => {
                         onClick={async () => {
                             setLoadingSale(true)
                             try{
+
+                                const dataForm = formEnd.getFieldsValue()
+
                                 const items = Object.entries(saleStatus).map(ss => {
                                     const item = [...products, ...packs].find(p => p.id === ss[0])
                                     const isPack = !!(ss[1]?.items)
@@ -298,19 +349,29 @@ const Event = () => {
                                 })
                                 const sale = {
                                     createdAt: new Date(),
-                                    paymentMethod,
+                                    ...(paymentMethod ? { paymentMethod: paymentMethod } : {}),
+                                    ...(reservationMethod ? { reservationMethod: reservationMethod } : {}),
                                     total: calculateTotal(),
-                                    items
+                                    ...dataForm,
+                                    completed: !isReservation,
+                                    items: items.map(it => {
+                                        if(isReservation){ return { ...it, delivered: 0 }}
+                                        else { return it }
+                                    })
                                 }
 
-                                const docRef = doc(firestore, "events", id);
-                                const colRef = collection(docRef, "sales")
-                                await addDoc(colRef, sale);
-                                message.success("La venta se ha guardado correctamente")
-                                history.push(`/eventos/${id}`)
+                                if(isReservation){
+                                    await addDoc(collection(firestore, "reservations"), sale)
+                                } else {
+                                    const docRef = doc(firestore, "events", id);
+                                    const colRef = collection(docRef, "sales")
+                                    await addDoc(colRef, sale);
+                                }
+                                message.success(`La ${isReservation ? "reserva" : "venta"} se ha guardado correctamente`)
+                                history.push(isReservation ? "/reservas" : `/eventos/${id}`)
                             } catch(err) {
                                 console.log(err)
-                                message.error("Ocurrió un error durante el guardado de la venta")
+                                message.error(`Ocurrió un error durante el guardado de la ${isReservation ? "reserva" : "venta"}`)
                             }
                             setLoadingSale(false)
                         }}

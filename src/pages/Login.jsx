@@ -1,77 +1,86 @@
+import { Button, Form, Input, message } from "antd";
 import React, { useState } from "react";
 import { useHistory, Link } from "react-router-dom";
+import styled from "styled-components";
 import { useAuthentication } from "../context/authentication";
 
 const Login = () => {
-  const { push } = useHistory();
+  const history = useHistory();
   const { doLogin } = useAuthentication();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formValues, setFormValues] = useState({
-    email: "",
-    password: "",
-  });
+  const form = Form.useForm()[0]
 
   const onSubmit = async () => {
-    const { email, password } = formValues;
-
+    const { email, password } = form.getFieldsValue()
     try {
-      setIsSubmitting(true);
-
       await doLogin(email, password);
-
-      push("/");
-    } catch (e) {
-      setIsSubmitting(false);
+      history.push("/");
+    } catch (err) {
+      if(err.code === "auth/wrong-password" || err.code === "auth/user-not-found"){
+        message.error("Usuario o contraseña incorrectos")
+      } else {
+        message.error("Ocurrió un problema en el proceso de login")
+        console.log(err)
+      }
     }
-  };
-
-  const handleChange = e => {
-    setFormValues({
-      ...formValues,
-      [e.target.name]: e.target.value,
-    });
+    setIsSubmitting(false);
   };
 
   return (
-    <form>
-      <div style={{ display: "flex", flexDirection: "column" }}>
-        <div>
-          <label htmlFor="email">Email</label>
-          <input
-            type="email"
-            required
-            id="email"
-            name="email"
-            value={formValues.email}
-            onChange={handleChange}
-          />
-        </div>
-        <div>
-          <label htmlFor="password">Password</label>
-          <input
-            type="password"
-            required
-            id="password"
-            name="password"
-            value={formValues.password}
-            onChange={handleChange}
-          />
-        </div>
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            width: "fit-content",
-          }}
+    <Wrapper>
+      <Card>
+        <Form
+          layout="vertical"
+          form={form}
+          onFinish={() => onSubmit()}
         >
-          <button type="submit" disabled={isSubmitting} onClick={onSubmit}>
-            {isSubmitting ? "logging..." : "login"}
-          </button>
-          <Link to="/register">I don't have an account yet!</Link>
-        </div>
-      </div>
-    </form>
+          <Form.Item
+            type="email"
+            rules={[{ required: true, message: "Campo requerido" }]}
+            label="Email"
+            name="email"
+          >
+            <Input />
+          </Form.Item>
+          <Form.Item
+            type="password"
+            rules={[{ required: true, message: "Campo requerido" }]}
+            label="Contraseña"
+            name="password"
+          >
+            <Input.Password />
+          </Form.Item>
+          <Button 
+            type="primary"
+            disabled={isSubmitting} 
+            loading={isSubmitting}
+            onClick={() => form.submit()}
+          >
+            Acceder
+          </Button>
+        </Form>
+      </Card>
+    </Wrapper>
   );
 };
+
+const Wrapper = styled.div`
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100vh;
+  background-color: gainsboro;
+`
+
+const Card = styled.div`
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 1em;
+  border-radius: 4px;
+  background-color: white;
+  box-shadow: 0px 0px 6px 1px rgba(0, 0, 0, 0.1);
+`
 
 export default Login
