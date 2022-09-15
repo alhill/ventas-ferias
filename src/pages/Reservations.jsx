@@ -3,7 +3,7 @@ import { collection, query, doc, getDocs, getDoc, addDoc, setDoc, deleteDoc, onS
 import React, { useEffect, useState } from 'react'
 import { Container } from '../components'
 import { useFirebase } from '../context/firebase';
-import { CheckOutlined, CloseOutlined, DeleteOutlined, EditOutlined, ExportOutlined, EyeOutlined } from '@ant-design/icons'
+import { CheckOutlined, CloseOutlined, DeleteOutlined, EditOutlined, ExportOutlined, EyeOutlined, GiftOutlined, UserOutlined } from '@ant-design/icons'
 import _ from 'lodash';
 import estaSeguroDeQue from '../utils/estaSeguroDeQue';
 import { useHistory, Link } from 'react-router-dom';
@@ -24,6 +24,8 @@ const Reservations = () => {
     const [pendingProducts, setPendingProducts] = useState([])
     const [detailModal, setDetailModal] = useState({ visible: false })
     const [deliverModal, setDeliverModal] = useState({ visible: false })
+    const [searchName, setSearchName] = useState("")
+    const [searchProduct, setSearchProduct] = useState("") 
 
     useEffect(() => {
         const unsubscribeProducts = onSnapshot(
@@ -55,8 +57,16 @@ const Reservations = () => {
     }, [])
 
     useEffect(() => {
-        setFilteredReservations((reservations || []).filter(r => r.completed === showCompleted))
-    }, [reservations, showCompleted])
+        setFilteredReservations((reservations || [])
+            .filter(r => r.completed === showCompleted)
+            .filter(r => (r?.name || "").toLocaleLowerCase().includes(searchName.toLocaleLowerCase()) || !searchName)
+            .filter(r => {
+                const populatedItems = (r?.items || []).map(it => (products || []).find(p => p.id === it.id))
+                const itemNames = (populatedItems || []).map(pit => (pit.name || "").toLocaleLowerCase())
+                return itemNames.some(itn => itn.includes((searchProduct || "").toLocaleLowerCase())) || !searchProduct
+            })
+        )
+    }, [reservations, showCompleted, searchName, searchProduct])
 
     const [form] = Form.useForm()
 
@@ -287,6 +297,23 @@ const Reservations = () => {
                     <Link to="/nueva-reserva"><Button>Crear reserva</Button></Link>
                     <Button onClick={() => setShowCompleted(!showCompleted)}>Mostrar { showCompleted ? "sin completar" : "completadas"}</Button>
                 </div>
+            </div>
+            <br />
+            <div style={{ display: "flex", justifyContent: "space-evenly", width: "100%" }}>
+                <Input 
+                    placeholder="Buscar por nombre"
+                    value={searchName}
+                    onChange={e => setSearchName(e.target.value)}
+                    allowClear
+                    prefix={<UserOutlined />}
+                />
+                <Input 
+                    placeholder="Buscar por producto"
+                    value={searchProduct}
+                    onChange={e => setSearchProduct(e.target.value)}
+                    allowClear
+                    prefix={<GiftOutlined />}
+                />
             </div>
 
             <br />
