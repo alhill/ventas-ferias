@@ -64,7 +64,7 @@ const Event = () => {
             query(collection(firestore, "products")),
             qs => {
                 const products = qs.docs.map(doc => ({ ...doc.data(), id: doc.id }))
-                setProducts(products)
+                setProducts(products.filter(p => p.active))
             }
         );
         const unsubscribePacks = onSnapshot(
@@ -81,7 +81,7 @@ const Event = () => {
                 setEvent(event)
             }
             const config = (await getDoc(doc(collection(firestore, "config"), "1"))).data()
-            const tags = config?.tags || []
+            const tags = (config?.tags || []).sort((a, b) => a > b ? 1 : -1)
             setTags(tags)
         })()
 
@@ -181,7 +181,7 @@ const Event = () => {
                 footer={null}
             >
                 <ProductWrapper>
-                    {(products.filter(p => p.tags.includes(modalPackSelector?.pack?.tag)) || []).map(p => {
+                    {(products.filter(p => p.active && p.tags.includes(modalPackSelector?.pack?.tag)) || []).map(p => {
                         return (
                             <PackBtn
                                 key={`pack-${p.id}`}
@@ -351,9 +351,10 @@ const Event = () => {
                                     ...(paymentMethod ? { paymentMethod: paymentMethod } : {}),
                                     ...(reservationMethod ? { reservationMethod: reservationMethod } : {}),
                                     total: calculateTotal(),
-                                    ...dataForm,
+                                    ..._.omit(dataForm, ["observations", "address"]),
                                     completed: !isReservation,
                                     ...(dataForm?.observations ? { observations: dataForm.observations } : {}),
+                                    ...(dataForm?.address ? { address: dataForm.address } : {}),
                                     items: items.map(it => {
                                         if(isReservation){ return { ...it, delivered: 0 }}
                                         else { return it }

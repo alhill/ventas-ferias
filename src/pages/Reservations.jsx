@@ -8,7 +8,7 @@ import _ from 'lodash';
 import estaSeguroDeQue from '../utils/estaSeguroDeQue';
 import { useHistory, Link } from 'react-router-dom';
 import moment from 'moment'
-import { basicSorter } from '../utils';
+import { basicSorter, cleanStr } from '../utils';
 import styled from 'styled-components';
 
 const Reservations = () => {
@@ -59,11 +59,11 @@ const Reservations = () => {
     useEffect(() => {
         setFilteredReservations((reservations || [])
             .filter(r => r.completed === showCompleted)
-            .filter(r => (r?.name || "").toLocaleLowerCase().includes(searchName.toLocaleLowerCase()) || !searchName)
+            .filter(r => cleanStr(r?.name || "").includes(cleanStr(searchName)) || !searchName)
             .filter(r => {
                 const populatedItems = (r?.items || []).map(it => (products || []).find(p => p.id === it.id))
-                const itemNames = (populatedItems || []).map(pit => (pit.name || "").toLocaleLowerCase())
-                return itemNames.some(itn => itn.includes((searchProduct || "").toLocaleLowerCase())) || !searchProduct
+                const itemNames = (populatedItems || []).map(pit => cleanStr(pit.name || ""))
+                return itemNames.some(itn => itn.includes(cleanStr(searchProduct || ""))) || !searchProduct
             })
         )
     }, [reservations, showCompleted, searchName, searchProduct])
@@ -295,6 +295,7 @@ const Reservations = () => {
             <div style={{ display: "flex", justifyContent: "center", width: "100%" }}>
                 <div>
                     <Link to="/nueva-reserva"><Button>Crear reserva</Button></Link>
+                    &nbsp;&nbsp;
                     <Button onClick={() => setShowCompleted(!showCompleted)}>Mostrar { showCompleted ? "sin completar" : "completadas"}</Button>
                 </div>
             </div>
@@ -305,14 +306,14 @@ const Reservations = () => {
                     value={searchName}
                     onChange={e => setSearchName(e.target.value)}
                     allowClear
-                    prefix={<UserOutlined />}
+                    prefix={<UserOutlined style={{ color: "#d9d9d9" }}/>}
                 />
                 <Input 
                     placeholder="Buscar por producto"
                     value={searchProduct}
                     onChange={e => setSearchProduct(e.target.value)}
                     allowClear
-                    prefix={<GiftOutlined />}
+                    prefix={<GiftOutlined style={{ color: "#d9d9d9" }} />}
                 />
             </div>
 

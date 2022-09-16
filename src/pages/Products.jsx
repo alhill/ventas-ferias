@@ -1,11 +1,12 @@
-import { Button, Modal, Input, Table, Tag, Form, Select, message } from 'antd'
+import { Button, Modal, Input, Table, Tag, Form, Select, message, Checkbox } from 'antd'
 import { collection, query, doc, getDocs, getDoc, addDoc, setDoc, deleteDoc, onSnapshot } from "firebase/firestore";
 import React, { useEffect, useState } from 'react'
 import { Container } from '../components'
 import { useFirebase } from '../context/firebase';
-import { DeleteOutlined, EditOutlined } from '@ant-design/icons'
+import { DeleteOutlined, EditOutlined, SearchOutlined } from '@ant-design/icons'
 import _ from 'lodash';
 import estaSeguroDeQue from '../utils/estaSeguroDeQue';
+import { basicSearch, basicSorter } from '../utils';
 
 const Products = () => {
     const { firestore } = useFirebase()
@@ -13,12 +14,14 @@ const Products = () => {
     const [mutateModal, setMutateModal] = useState({ visible: false })
     const [mutateModalPack, setMutateModalPack] = useState({ visible: false })
     const [products, setProducts] = useState([])
+    const [filteredProducts, setFilteredProducts] = useState([])
     const [packs, setPacks] = useState([])
     const [tags, setTags] = useState([])
     const [selectedTags, setSelectedTags] = useState([])
     const [selectedTagPack, setSelectedTagPack] = useState()
     const [loading, setLoading] = useState(false)
     const [loadingPack, setLoadingPack] = useState(false)
+    const [search, setSearch] = useState("")
 
     useEffect(() => {
         const unsubscribeProducts = onSnapshot(
@@ -55,11 +58,12 @@ const Products = () => {
         try{
             setLoading(true)
             // const { name, tags, price1, price2 } = form.getFieldsValue(true)
-            const { name, tags, price } = form.getFieldsValue(true)
+            const { name, tags, price, active } = form.getFieldsValue(true)
             const added = await addDoc(collection(firestore, "products"), {
                 name,
                 tags,
-                price: parseFloat(price)
+                price: parseFloat(price),
+                active
                 // price: [price1, price2].filter(e => e)
             })
             setMutateModal({ visible: false })
@@ -73,11 +77,12 @@ const Products = () => {
     const updateProduct = async id => {
         try{
             setLoading(true)
-            const { name, tags, price } = form.getFieldsValue(true)
+            const { name, tags, price, active } = form.getFieldsValue(true)
             const updated = await setDoc(doc(firestore, "products", id), {
                 name,
                 tags,
-                price: parseFloat(price)
+                price: parseFloat(price),
+                active
             })
             setMutateModal({ visible: false })
             message.success("El producto se ha editado correctamente")
@@ -149,7 +154,36 @@ const Products = () => {
         {
             title: "Nombre",
             dataIndex: "name",
-            key: "name"
+            key: "name",
+            sorter: (a, b) => basicSorter(a, b, "name")
+        },
+        {
+            title: "Precio",
+            dataIndex: "price",
+            key: "price",
+            sorter: (a, b) => basicSorter(a, b, "price"),
+            render: price => price + "€"
+        },
+        {
+            title: "Activo",
+            dataIndex: "active",
+            key: "active",
+            render: active => active ? "Sí" : "No",
+            filters: [
+                {
+                    text: 'Activos',
+                    value: true,
+                },
+                {
+                    text: 'Inactivos',
+                    value: false,
+                }
+            ],
+            filterSearch: true,
+            onFilter: (value, record) => {
+                console.log({ value, record })
+                return !!record.active === value
+            }
         },
         {
             title: "Opciones",
@@ -161,7 +195,8 @@ const Products = () => {
                                 form.setFieldsValue({
                                     name: it.name,
                                     price: it.price,
-                                    tags: it.tags
+                                    tags: it.tags,
+                                    active: !!it.active
                                 })
                                 setSelectedTags(it.tags)
                                 setMutateModal({
@@ -241,18 +276,34 @@ const Products = () => {
             }
         }
     ]
+
+    useEffect(() => {
+        const filteredProducts = basicSearch(search, products, ["name"])
+        setFilteredProducts(filteredProducts)
+    }, [products, search])
+
     return (
         <Container>
             <h2>Productos</h2>
-            <Button 
-                onClick={() => setMutateModal({ visible: true, edit: false })}
-                onCancel={() => setMutateModal({ visible: false })}
-                style={{ marginBottom: "1em" }}
-            >Crear producto</Button>
+
+            <div style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1em" }}>
+                <Input
+                    placeholder="Buscar producto"
+                    allowClear
+                    value={search}
+                    onChange={evt => setSearch(evt.target.value)}
+                    style={{ maxWidth: 350 }}
+                    prefix={<SearchOutlined />}
+                />
+                <Button 
+                    onClick={() => setMutateModal({ visible: true, edit: false })}
+                    onCancel={() => setMutateModal({ visible: false })}
+                >Crear producto</Button>
+            </div>
 
             <div style={{ width: "100%" }}>
                 <Table
-                    dataSource={products}
+                    dataSource={filteredProducts}
                     rowKey="id"
                     columns={columns}
                 />
@@ -284,6 +335,7 @@ const Products = () => {
                     form={form}
                     layout="vertical"
                     onFinish={() => mutateModal?.edit ? updateProduct(mutateModal?.id) : createProduct()}
+                    initialValues={{ active: true }}
                 >
                     <Form.Item
                         name="name"
@@ -297,7 +349,7 @@ const Products = () => {
                         label="Precio"
                         rules={[{ required: true }]}
                     >
-                        <Input type="number"/>
+                        <Input type="number" suffix="€" />
                     </Form.Item>
                     <Form.Item
                         label="Etiquetas"
@@ -311,8 +363,10 @@ const Products = () => {
                                 form.setFieldsValue({ tags })
                                 setSelectedTags(tags)
                             }}
+                            style={{ marginBottom: 6 }}
+                            showSearch
                         >
-                            { tags.map((tag, i) => {
+                            { tags.sort((a, b) => a > b ? 1 : -1).map((tag, i) => {
                                 return (
                                     <Select.Option value={tag} key={"tag-option" + i}>{ tag }</Select.Option>
                                 )
@@ -328,6 +382,13 @@ const Products = () => {
                             )
                         })}
                     </Form.Item>
+                    <Form.Item
+                        name="active"
+                        label="Activo"
+                        valuePropName='checked'
+                    >
+                        <Checkbox />
+                    </Form.Item>
                 </Form>
                 <div>
                     <Button 
@@ -336,10 +397,18 @@ const Products = () => {
                         onClick={() => form.submit()}
                     >{ mutateModal?.edit ? "Editar" : "Crear" }</Button>
                     &nbsp;&nbsp;
+                    <Button
+                        onClick={() => {
+                            form.resetFields()
+                            setSelectedTags([])
+                        }}
+                        >Vaciar</Button>
+                    &nbsp;&nbsp;
                     <Button onClick={() => {
                         form.resetFields()
                         setLoading(false)
                         setMutateModal({ visible: false })
+                        setSelectedTags([])
                     }}>Cancelar</Button>
                 </div>
             </Modal>

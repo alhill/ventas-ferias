@@ -50,7 +50,7 @@ const ProductBtn = ({ product, mutateStatus, qty, modalPack, setModalPack }) => 
 
 const Wrapper = styled.div`
     width: 105px;
-    height: 140px;
+    height: 150px;
     border-radius: 4px;
     border: 1px solid gainsboro;
     margin: 4px;
