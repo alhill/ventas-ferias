@@ -6,6 +6,7 @@ import { useParams, useHistory, Link } from 'react-router-dom'
 import { Radio, Button, Modal, Form, Select, Input, message } from 'antd'
 import styled from 'styled-components'
 import _ from 'lodash'
+import { cleanStr } from '../utils'
 
 const Event = () => {
 
@@ -16,10 +17,12 @@ const Event = () => {
 
     const [products, setProducts] = useState([])
     const [packs, setPacks] = useState([])
+    const [events, setEvents] = useState([])
     const [filteredProducts, setFilteredProducts] = useState([])
     const [event, setEvent] = useState()
     const [tags, setTags] = useState([])
     const [selectedTag, setSelectedTag] = useState()
+    const [assignedToEvent, setAssignedToEvent] = useState()
     const [saleStatus, setSaleStatus] = useState({})
     const [packItems, setPackItems] = useState([])
     const [modalPackSelector, setModalPackSelector] = useState({ visible: false })
@@ -74,11 +77,20 @@ const Event = () => {
                 setPacks(packs)
             }
         );
+        let unsubscribeEvents = () => {}
 
         (async () => {
             if(!isReservation){
                 const event = (await getDoc(doc(collection(firestore, "events"), id))).data()
                 setEvent(event)
+            } else {
+                unsubscribeEvents = onSnapshot(
+                    query(collection(firestore, "events")),
+                    qs => {
+                        const events = qs.docs.map(doc => ({ ...doc.data(), id: doc.id }))
+                        setEvents(events)
+                    }
+                );
             }
             const config = (await getDoc(doc(collection(firestore, "config"), "1"))).data()
             const tags = (config?.tags || []).sort((a, b) => a > b ? 1 : -1)
@@ -88,6 +100,7 @@ const Event = () => {
         return () => {
             unsubscribeProducts()
             unsubscribePacks()
+            unsubscribeEvents()
         }
     }, [])
 
@@ -270,7 +283,7 @@ const Event = () => {
                             name="paymentMethod"
                             label="Forma de pago"
                             rules={[{ required: true }]}
-                            >
+                        >
                             <Select
                                 onChange={evt => {
                                     setPaymentMethod(evt)
@@ -278,6 +291,25 @@ const Event = () => {
                                 >
                                 <Select.Option value="Efectivo">Efectivo</Select.Option>
                                 <Select.Option value="Bizum">Bizum</Select.Option>
+                            </Select>
+                        </Form.Item>
+                    )}
+                    { isReservation && (
+                        <Form.Item
+                            name="assignedTo"
+                            label="Asignar a evento"
+                        >
+                            <Select
+                                onChange={evt => { setAssignedToEvent(evt) }}
+                                showSearch={true}
+                                allowClear
+                                filterOption={(input, option) => cleanStr(option?.children || "").includes(cleanStr(input || ""))}
+                            >
+                                {(events || []).map(event => {
+                                    return (
+                                        <Select.Option key={event.id} value={event.id}>{ event.name }</Select.Option>
+                                    )
+                                })}
                             </Select>
                         </Form.Item>
                     )}

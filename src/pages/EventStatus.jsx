@@ -1,4 +1,4 @@
-import { getDoc, query, collection, getDocs, onSnapshot, doc } from 'firebase/firestore'
+import { getDoc, query, collection, getDocs, onSnapshot, doc, where } from 'firebase/firestore'
 import React, { useEffect, useState } from 'react'
 import { Container } from '../components'
 import { useFirebase } from '../context/firebase'
@@ -16,9 +16,13 @@ const EventStatus = () => {
     const [products, setProducts] = useState([])
     const [packs, setPacks] = useState([])
     const [sales, setSales] = useState([])
+    const [reservations, setReservations] = useState([])
     const [event, setEvent] = useState()
     const [tags, setTags] = useState([])
     const [total, setTotal] = useState()
+    const [salesTotal, setSalesTotal] = useState()
+    const [reservationsTotal, setReservationsTotal] = useState()
+    const [reservationsPending, setReservationsPending] = useState()
     const [modalDetalle, setModalDetalle] = useState({
         visible: false
     })
@@ -41,8 +45,20 @@ const EventStatus = () => {
         const unsubscribeSales = onSnapshot(
             query(collection(firestore, `events/${id}/sales`)),
             qs => {
-                const sales = qs.docs.map(doc => ({ ...doc.data(), id: doc.id }))
+                const sales = qs.docs
+                    .map(doc => ({ ...doc.data(), id: doc.id }))
+                    .sort((a, b) => a?.createdAt < b?.createdAt ? 1 : -1)
+
+
                 setSales(sales)
+            }
+        );
+        const unsubscribeReservations = onSnapshot(
+            query(collection(firestore, `reservations`), where("assignedTo", "==", id)),
+            qs => {
+                const reservations = qs.docs
+                    .map(doc => ({ ...doc.data(), id: doc.id }))
+                setReservations(reservations)
             }
         );
 
@@ -63,75 +79,171 @@ const EventStatus = () => {
             unsubscribeProducts()
             unsubscribePacks()
             unsubscribeSales()
+            unsubscribeReservations()
         }
     }, [])
 
-    const columns = [
-        {
-            title: "Fecha",
-            dataIndex: "createdAt",
-            key: "date",
-            render: date => moment(date.seconds * 1000).format("DD-MM-YYYY HH:mm"),
-            sorter: (a, b) => basicSorter(a?.createdAt, b?.createdAt, "seconds")
-        },
-        {
-            title: "Nº artículos",
-            dataIndex: "items",
-            key: "items",
-            render: items => {
-                const allItems = items.map(it => it?.subItems ? it.subItems : it).flat()
-                return allItems.length
+    const columns = type => {
+        const onlyForReservations = type === "reservations" ? [
+            {
+                title: "Completada",
+                key: "completed",
+                render: it => {
+                    if(it.completed){ return "Sí" }
+                    else{
+                        const totalItems = it.items.reduce((acc, it) => acc + it.qty, 0)
+                        const totalDelivered = it.items.reduce((acc, it) => acc + it.delivered, 0)
+                        return `${totalDelivered}/${totalItems} productos`
+                    }
+                }
             }
-        },
-        {
-            title: "Importe",
-            dataIndex: "total",
-            key: "total",
-            render: total => total + "€",
-            sorter: (a, b) => basicSorter(a, b, "total")
-        },
-        {
-            key: "detalleBtn",
-            render: item => (
-                <Button
-                    onClick={() => {
-                        const populatedItem = {
-                            ...item,
-                            items: (item?.items || []).map(it => {
-                                return {
-                                    ...it,
-                                    name: products.find(p => p.id === it.id)?.name
-                                }
+        ] : []
+
+        return [
+            {
+                title: "Fecha",
+                dataIndex: "createdAt",
+                key: "date",
+                render: date => moment(date.seconds * 1000).format("DD-MM-YYYY HH:mm"),
+                sorter: (a, b) => basicSorter(a?.createdAt, b?.createdAt, "seconds")
+            },
+            {
+                title: "Nº artículos",
+                dataIndex: "items",
+                key: "items",
+                render: items => {
+                    const allItems = items.map(it => it?.subItems ? it.subItems : it).flat()
+                    return allItems.reduce((acc, it) => acc + it.qty, 0)
+                }
+            },
+            {
+                title: "Importe",
+                dataIndex: "total",
+                key: "total",
+                render: total => total + "€",
+                sorter: (a, b) => basicSorter(a, b, "total")
+            },
+            ...onlyForReservations,
+            {
+                title: "Opciones",
+                key: "detalleBtn",
+                render: item => (
+                    <Button
+                        onClick={() => {
+                            const populatedItem = {
+                                ...item,
+                                items: (item?.items || []).map(it => {
+                                    return {
+                                        ...it,
+                                        name: products.find(p => p.id === it.id)?.name
+                                    }
+                                })
+                            }
+                            setModalDetalle({
+                                visible: true,
+                                item: populatedItem,
+                                isReservation: type === "reservations"
                             })
-                        }
-                        setModalDetalle({
-                            visible: true,
-                            item: populatedItem
-                        })
-                    }}
-                ><EyeOutlined /></Button>
-            )
-        }
-    ]
+                        }}
+                    ><EyeOutlined /></Button>
+                )
+            }
+        ]
+    }
+
+    const modalColumns = isReservation => {
+        const onlyForReservations = isReservation ? [
+            {
+                title: "Entregadas",
+                dataIndex: "delivered",
+                key: "delivered"
+            }
+        ] : []
+        return [
+            {
+                title: "Nombre",
+                dataIndex: "name",
+                key: "name",
+                sorter: (a, b) => basicSorter(a, b, "name"),
+            },
+            {
+                title: "Cantidad",
+                dataIndex: "qty",
+                key: "qty",
+                sorter: (a, b) => basicSorter(a, b, "qty"),
+            },
+            ...onlyForReservations,
+            {
+                title: "Importe",
+                dataIndex: "price",
+                key: "price",
+                sorter: (a, b) => basicSorter(a, b, "price"),
+                render: price => price + "€"
+            },
+            {
+                title: "Total",
+                key: "total",
+                sorter: (a, b) => basicSorter(a, b, "total"),
+                render: it => {
+                    if(!isReservation || (it.qty === it.delivered)){
+                        return it.price*it.qty + "€"
+                    } else {
+                        return `${it.price*it.delivered}/${it.price*it.qty}€`
+                    }
+                }
+            }
+        ]
+    }
 
     useEffect(() => {
         const total = sales.reduce((acc, it) => {
             return acc + it?.total
         }, 0)
-        setTotal(total + "€")
-    }, [sales])
+        setSalesTotal(total)
+        const reservationsMod = reservations.map(r => {
+            return {
+                completed: (r.items || []).reduce((acc, it) => acc + (it.delivered * it.price), 0),
+                pending: (r.items || []).reduce((acc, it) => acc + ((it.qty - it.delivered) * it.price), 0)
+            }
+        })
+        const reservationsTotal = reservationsMod.reduce((acc, it) => acc + it.completed, 0)
+        const reservationsPending = reservationsMod.reduce((acc, it) => acc + it.pending, 0)
+
+        setReservationsTotal(reservationsTotal)
+        setReservationsPending(reservationsPending)
+
+    }, [sales, reservations])
 
     return (
         <Container>
             <Link to={`/eventos/${id}`}>&lt; Volver</Link>
             <h2>Resumen {event?.name}</h2>
 
-            <h4>Total: {total}</h4>
-            <Table
-                columns={columns}
-                dataSource={sales}
-                rowKey="id"
-            />
+            <h4>Ventas: {salesTotal}€</h4>
+            <h4>Reservas completadas: {reservationsTotal}€</h4>
+            <h4>Reservas pendientes: {reservationsPending}€</h4>
+
+            <h2>Total: {salesTotal + reservationsTotal }€</h2>
+
+            <div style={{ width: "100%" }}>
+                <h3>Ventas</h3>
+                <Table
+                    columns={columns("sales")}
+                    dataSource={sales}
+                    rowKey="id"
+                />
+            </div>
+
+            <br />
+
+            <div style={{ width: "100%" }}>
+                <h3>Reservas</h3>
+                <Table
+                    columns={columns("reservations")}
+                    dataSource={reservations}
+                    rowKey="id"
+                />
+            </div>
 
             {/* Modal detalle */}
             <Modal
@@ -148,27 +260,7 @@ const EventStatus = () => {
                 <Table
                     rowKey="id"
                     dataSource={(modalDetalle?.item?.items || [])}
-                    columns={[
-                        {
-                            title: "Nombre",
-                            dataIndex: "name",
-                            key: "name",
-                            sorter: (a, b) => basicSorter(a, b, "name"),
-                        },
-                        {
-                            title: "Cantidad",
-                            dataIndex: "qty",
-                            key: "qty",
-                            sorter: (a, b) => basicSorter(a, b, "qty"),
-                        },
-                        {
-                            title: "Importe",
-                            dataIndex: "price",
-                            key: "price",
-                            render: price => price + "€",
-                            sorter: (a, b) => basicSorter(a, b, "price")
-                        }
-                    ]}
+                    columns={modalColumns(modalDetalle.isReservation)}
                 />
 
                 <div style={{ display: "flex", justifyContent: "center" }}>

@@ -114,31 +114,41 @@ const Reservations = () => {
         }
     }
 
-    const toggleCompleted = async item => {
-        const updated = await updateDoc(doc(firestore, "reservations", item.id), {
-            completed: !item?.completed
-        })
-    }
-
     const columns = [
         {
             title: "Nombre",
-            dataIndex: "name",
             key: "name",
-            sorter: (a, b) => basicSorter(a?.name, b?.name)
+            sorter: (a, b) => basicSorter(a?.name, b?.name),
+            className: "nameCol",
+            render: item => {
+                return (
+                    <p 
+                        onClick={() => {
+                            setDeliverModal({ 
+                                visible: true, 
+                                item,
+                                totalPrice: (item?.items || []).reduce((acc, it) => {
+                                    return acc + (parseInt(it.qty) * parseFloat(it.price))
+                                }, 0)
+                            })
+                        }}
+                        style={{ width: "100%", margin: 0, padding: "1em", cursor: "pointer" }}
+                    >{ item.name }</p>
+                )
+            }
         },
-        {
-            title: "Forma de contacto",
-            dataIndex: "reservationMethod",
-            key: "reservationMethod",
-            sorter: (a, b) => basicSorter(a?.reservationMethod, b?.reservationMethod)
-        },
-        {
-            title: "Dirección/Número",
-            dataIndex: "address",
-            key: "address",
-            sorter: (a, b) => basicSorter(a?.address, b?.address)
-        },
+        // {
+        //     title: "Forma de contacto",
+        //     dataIndex: "reservationMethod",
+        //     key: "reservationMethod",
+        //     sorter: (a, b) => basicSorter(a?.reservationMethod, b?.reservationMethod)
+        // },
+        // {
+        //     title: "Dirección/Número",
+        //     dataIndex: "address",
+        //     key: "address",
+        //     sorter: (a, b) => basicSorter(a?.address, b?.address)
+        // },
         {
             title: "Fecha de reserva",
             dataIndex: "createdAt",
@@ -292,6 +302,17 @@ const Reservations = () => {
     return (
         <Container>
             <h2>Reservas</h2>
+            <Button
+                onClick={async () => {
+                    reservations.forEach(async res => {
+                        await updateDoc(doc(firestore, "reservations", res.id), {
+                            assignedTo: "SeMajIbTHTrIGTPdjc4D"
+                        })
+                    })
+                }}
+            >
+                boton misterio
+            </Button>
             <div style={{ display: "flex", justifyContent: "center", width: "100%" }}>
                 <div>
                     <Link to="/nueva-reserva"><Button>Crear reserva</Button></Link>
@@ -319,14 +340,14 @@ const Reservations = () => {
 
             <br />
 
-            <div
-                style={{ width: "100%", overflowX: "auto" }}
-            >
-                <Table
-                    dataSource={filteredReservations}
-                    rowKey="id"
-                    columns={columns}
-                />
+            <div style={{ width: "100%", overflowX: "auto" }}>
+                <Modifier>
+                    <Table
+                        dataSource={filteredReservations}
+                        rowKey="id"
+                        columns={columns}
+                    />
+                </Modifier>
             </div>
 
             <br />
@@ -380,7 +401,6 @@ const Reservations = () => {
                     ]}
                     dataSource={detailModal?.item?.items || []}
                 />
-
                 <Button onClick={() => setDetailModal({ visible: false })}>Cerrar</Button>
             </Modal>
 
@@ -476,7 +496,7 @@ const Reservations = () => {
                                 </Form.Item>
                                 <Form.Item
                                     label="Devuelvo..."
-                                >
+                                >p
                                     <Input type="number" suffix="€" disabled value={(deliverModal?.inputMoney || 0) - (deliverModal.partialPrice || deliverModal.totalPrice)}/>
                                 </Form.Item>
                             </Form>
@@ -511,6 +531,12 @@ const SmallHeaderCollapse = styled.div`
     margin: 1em 0;
     .ant-collapse-header{
         padding: 2px 1em !important;
+    }
+`
+
+const Modifier = styled.div`
+    tbody .nameCol{
+        padding: 0;
     }
 `
 
