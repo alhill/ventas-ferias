@@ -125,7 +125,7 @@ const Event = () => {
     return (
         <Container>
             <Link to={`/eventos/${id}`}>&lt; Volver</Link>
-            <h2>Nueva {isReservation ? "reserva" : `venta {event?.name}`}</h2>
+            <h2>Nueva {isReservation ? "reserva" : `venta ${event?.name}`}</h2>
 
             <Button
                 onClick={() => setModalEndSale({
@@ -245,6 +245,56 @@ const Event = () => {
                 <Form
                     form={formEnd}
                     layout="vertical"
+                    onFinish={async dataForm => {
+                        setLoadingSale(true)
+                        try{
+                            const items = Object.entries(saleStatus).map(ss => {
+                                const item = [...products, ...packs].find(p => p.id === ss[0])
+                                const isPack = !!(ss[1]?.items)
+                                const subItems = isPack && { subItems: (ss[1].items.map(it => ({
+                                    id: it,
+                                    ref: doc(firestore, "products", it)
+                                })))}
+                                
+                                return {
+                                    id: ss[0],
+                                    ref: doc(firestore, isPack ? "packs" : "products", ss[0]),
+                                    qty: ss[1]?.qty || ss[1],
+                                    price: item.price,
+                                    ...subItems
+                                }
+                            })
+                            let sale = {
+                                createdAt: new Date(),
+                                ...(paymentMethod ? { paymentMethod: paymentMethod } : {}),
+                                ...(reservationMethod ? { reservationMethod: reservationMethod } : {}),
+                                total: calculateTotal(),
+                                ..._.omit(dataForm, ["observations", "address"]),
+                                completed: !isReservation,
+                                ...(dataForm?.observations ? { observations: dataForm.observations } : {}),
+                                ...(dataForm?.address ? { address: dataForm.address } : {}),
+                                items: items.map(it => {
+                                    if(isReservation){ return { ...it, delivered: 0 }}
+                                    else { return it }
+                                })
+                            }
+                            if(sale.name === undefined){ sale.name = null }
+
+                            if(isReservation){
+                                await addDoc(collection(firestore, "reservations"), sale)
+                            } else {
+                                const docRef = doc(firestore, "events", id);
+                                const colRef = collection(docRef, "sales")
+                                await addDoc(colRef, sale);
+                            }
+                            message.success(`La ${isReservation ? "reserva" : "venta"} se ha guardado correctamente`)
+                            history.push(isReservation ? "/reservas" : `/eventos/${id}`)
+                        } catch(err) {
+                            console.log(err)
+                            message.error(`Ocurrió un error durante el guardado de la ${isReservation ? "reserva" : "venta"}`)
+                        }
+                        setLoadingSale(false)
+                    }}
                 >
                     <Form.Item
                         name="name"
@@ -357,56 +407,7 @@ const Event = () => {
                         loading={loadingSale}
                         type="primary"
                         onClick={async () => {
-                            setLoadingSale(true)
-                            try{
-
-                                const dataForm = formEnd.getFieldsValue()
-
-                                const items = Object.entries(saleStatus).map(ss => {
-                                    const item = [...products, ...packs].find(p => p.id === ss[0])
-                                    const isPack = !!(ss[1]?.items)
-                                    const subItems = isPack && { subItems: (ss[1].items.map(it => ({
-                                        id: it,
-                                        ref: doc(firestore, "products", it)
-                                    })))}
-                                    
-                                    return {
-                                        id: ss[0],
-                                        ref: doc(firestore, isPack ? "packs" : "products", ss[0]),
-                                        qty: ss[1]?.qty || ss[1],
-                                        price: item.price,
-                                        ...subItems
-                                    }
-                                })
-                                const sale = {
-                                    createdAt: new Date(),
-                                    ...(paymentMethod ? { paymentMethod: paymentMethod } : {}),
-                                    ...(reservationMethod ? { reservationMethod: reservationMethod } : {}),
-                                    total: calculateTotal(),
-                                    ..._.omit(dataForm, ["observations", "address"]),
-                                    completed: !isReservation,
-                                    ...(dataForm?.observations ? { observations: dataForm.observations } : {}),
-                                    ...(dataForm?.address ? { address: dataForm.address } : {}),
-                                    items: items.map(it => {
-                                        if(isReservation){ return { ...it, delivered: 0 }}
-                                        else { return it }
-                                    })
-                                }
-
-                                if(isReservation){
-                                    await addDoc(collection(firestore, "reservations"), sale)
-                                } else {
-                                    const docRef = doc(firestore, "events", id);
-                                    const colRef = collection(docRef, "sales")
-                                    await addDoc(colRef, sale);
-                                }
-                                message.success(`La ${isReservation ? "reserva" : "venta"} se ha guardado correctamente`)
-                                history.push(isReservation ? "/reservas" : `/eventos/${id}`)
-                            } catch(err) {
-                                console.log(err)
-                                message.error(`Ocurrió un error durante el guardado de la ${isReservation ? "reserva" : "venta"}`)
-                            }
-                            setLoadingSale(false)
+                            formEnd.submit()
                         }}
                     >Aceptar</Button>
                 </BtnWrapper>
