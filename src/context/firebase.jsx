@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState } from "react";
 import * as firebase from "firebase/app";
 import { getFirestore, collection } from 'firebase/firestore'
+import { getStorage } from 'firebase/storage'
 import { 
   getAuth, 
   onAuthStateChanged, 
@@ -26,6 +27,7 @@ const FirebaseContext = createContext(undefined);
 function FirebaseProvider({ children }) {
 
   const firestore = getFirestore(firebaseApp);
+  const storage = getStorage()
   const auth = getAuth(firebaseApp);
 
   // AUTHENTICATION
@@ -90,6 +92,7 @@ function FirebaseProvider({ children }) {
         logoutUserFromFirebase,
         user,
         firestore,
+        storage,
         isFetchingUser,
       }}
     >

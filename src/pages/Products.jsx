@@ -1,18 +1,21 @@
-import { Button, Modal, Input, Table, Tag, Form, Select, message, Checkbox } from 'antd'
+import { Button, Modal, Input, Table, Tag, Form, Select, message, Checkbox, Upload } from 'antd'
 import { collection, query, doc, getDocs, getDoc, addDoc, setDoc, deleteDoc, onSnapshot } from "firebase/firestore";
 import React, { useEffect, useState } from 'react'
-import { Container } from '../components'
+import { Container, PicSquare } from '../components'
 import { useFirebase } from '../context/firebase';
-import { DeleteOutlined, EditOutlined, SearchOutlined } from '@ant-design/icons'
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
+import { DeleteOutlined, EditOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons'
 import _ from 'lodash';
 import estaSeguroDeQue from '../utils/estaSeguroDeQue';
 import { basicSearch, basicSorter } from '../utils';
+import styled from 'styled-components'
 
 const Products = () => {
-    const { firestore } = useFirebase()
+    const { firestore, storage } = useFirebase()
 
     const [mutateModal, setMutateModal] = useState({ visible: false })
     const [mutateModalPack, setMutateModalPack] = useState({ visible: false })
+    const [modalPics, setModalPics] = useState([])
     const [products, setProducts] = useState([])
     const [filteredProducts, setFilteredProducts] = useState([])
     const [packs, setPacks] = useState([])
@@ -63,7 +66,8 @@ const Products = () => {
                 name,
                 tags,
                 price: parseFloat(price),
-                active
+                active,
+                pictures: modalPics
                 // price: [price1, price2].filter(e => e)
             })
             setMutateModal({ visible: false })
@@ -82,7 +86,8 @@ const Products = () => {
                 name,
                 tags,
                 price: parseFloat(price),
-                active
+                active,
+                pictures: modalPics
             })
             setMutateModal({ visible: false })
             message.success("El producto se ha editado correctamente")
@@ -204,6 +209,7 @@ const Products = () => {
                                     edit: true,
                                     id: it.id
                                 })
+                                setModalPics(it.pictures || [])
                             }}
                         ><EditOutlined /></Tag>
                         &nbsp;
@@ -296,7 +302,10 @@ const Products = () => {
                     prefix={<SearchOutlined />}
                 />
                 <Button 
-                    onClick={() => setMutateModal({ visible: true, edit: false })}
+                    onClick={() => {
+                        setMutateModal({ visible: true, edit: false })
+                        setModalPics([])
+                    }}
                     onCancel={() => setMutateModal({ visible: false })}
                 >Crear producto</Button>
             </div>
@@ -350,6 +359,59 @@ const Products = () => {
                         rules={[{ required: true }]}
                     >
                         <Input type="number" suffix="€" />
+                    </Form.Item>
+                    <Form.Item
+                        label="Imágenes"
+                    >
+                        <PicWrapper>
+                            {modalPics.map((pic, i) => {
+                                return <PicSquare
+                                    picList={modalPics}
+                                    setPicList={setModalPics}
+                                    pic={pic}
+                                    idx={i}
+                                    key={`pic-${i}`}
+                                />
+                            })}  
+                            <Upload
+                                name="file"
+                                customRequest={async evt => {
+                                    const fullName = evt?.file?.name
+                                    const ext = fullName.split(".").slice(-1)[0]
+                                    const fileName = `${fullName.split(".").slice(0, -1).join(".")}-${new Date().getTime()}.${ext}`
+
+                                    if(["jpg", "jpeg", "png", "webp"].includes(ext)){
+                                        const newImgRef = ref(storage, "productImg/" + fileName)
+                                        try{
+                                            const uploaded = await uploadBytes(newImgRef, evt.file)
+                                            const url = await getDownloadURL(uploaded.ref)
+                                            setModalPics([
+                                                ...modalPics,
+                                                {
+                                                    path: url,
+                                                    main: modalPics.length === 0 
+                                                }
+                                            ])
+                                        } catch(err) {
+                                            console.log(err)
+                                            message.error("Ocurrió un error durante la subida del archivo")
+                                        }
+                                    } else {
+                                        message.error("Tipos de archivo admitidos: JPG, PNG y WEBP")
+                                    }
+                                }}
+                                showUploadList={false}
+                            >
+                                <Button 
+                                    icon={<PlusOutlined />}
+                                    style={{
+                                        width: 100,
+                                        height: "calc(100px + 2em)",
+                                        marginBottom: "1em"
+                                    }}
+                                ></Button>
+                            </Upload>
+                        </PicWrapper>
                     </Form.Item>
                     <Form.Item
                         label="Etiquetas"
@@ -485,5 +547,11 @@ const Products = () => {
         </Container>
     )
 }
+
+const PicWrapper = styled.div`
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+`
 
 export default Products
