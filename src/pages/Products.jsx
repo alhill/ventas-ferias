@@ -1,13 +1,13 @@
-import { Button, Modal, Input, Table, Tag, Form, Select, message, Checkbox, Upload } from 'antd'
-import { collection, query, doc, getDocs, getDoc, addDoc, setDoc, deleteDoc, onSnapshot } from "firebase/firestore";
+import { Button, Modal, Input, Table, Tag, Form, Select, message, Checkbox, Upload, Popover } from 'antd'
+import { collection, query, doc, getDocs, getDoc, addDoc, setDoc, deleteDoc, onSnapshot, updateDoc } from "firebase/firestore";
 import React, { useEffect, useState } from 'react'
 import { Container, PicSquare } from '../components'
 import { useFirebase } from '../context/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
-import { DeleteOutlined, EditOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons'
+import { DeleteOutlined, EditOutlined, InfoCircleOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons'
 import _ from 'lodash';
 import estaSeguroDeQue from '../utils/estaSeguroDeQue';
-import { basicSearch, basicSorter } from '../utils';
+import { basicSearch, basicSorter, cleanStr } from '../utils';
 import styled from 'styled-components'
 
 const Products = () => {
@@ -15,8 +15,11 @@ const Products = () => {
 
     const [mutateModal, setMutateModal] = useState({ visible: false })
     const [mutateModalPack, setMutateModalPack] = useState({ visible: false })
+    const [mutateModalVariants, setMutateModalVariants] = useState({ visible: false })
     const [modalPics, setModalPics] = useState([])
     const [products, setProducts] = useState([])
+    const [variants, setVariants] = useState([])
+    const [slugs, setSlugs] = useState([])
     const [filteredProducts, setFilteredProducts] = useState([])
     const [packs, setPacks] = useState([])
     const [tags, setTags] = useState([])
@@ -24,7 +27,9 @@ const Products = () => {
     const [selectedTagPack, setSelectedTagPack] = useState()
     const [loading, setLoading] = useState(false)
     const [loadingPack, setLoadingPack] = useState(false)
+    const [loadingVariants, setLoadingVariants] = useState(false)
     const [search, setSearch] = useState("")
+    const [selectedVariantItems, setSelectedVariantItems] = useState([])
 
     useEffect(() => {
         const unsubscribeProducts = onSnapshot(
@@ -32,6 +37,7 @@ const Products = () => {
             qs => {
                 const products = qs.docs.map(doc => ({ ...doc.data(), id: doc.id }))
                 setProducts(products)
+                setSlugs(products.map(p => p.slug).filter(e => e))
             }
         );
         const unsubscribePacks = onSnapshot(
@@ -39,6 +45,13 @@ const Products = () => {
             qs => {
                 const packs = qs.docs.map(doc => ({ ...doc.data(), id: doc.id }))
                 setPacks(packs)
+            }
+        );
+        const unsubscribeVariants = onSnapshot(
+            query(collection(firestore, "variants")),
+            qs => {
+                const variants = qs.docs.map(doc => ({ ...doc.data(), id: doc.id }))
+                setVariants(variants)
             }
         );
 
@@ -51,23 +64,28 @@ const Products = () => {
         return () => {
             unsubscribeProducts()
             unsubscribePacks()
+            unsubscribeVariants()
         }
     }, [])
 
     const [form] = Form.useForm()
     const [formPack] = Form.useForm()
+    const [formVariant] = Form.useForm()
 
     const createProduct = async () => {
         try{
             setLoading(true)
             // const { name, tags, price1, price2 } = form.getFieldsValue(true)
-            const { name, tags, price, active } = form.getFieldsValue(true)
+            const { name, tags, price, active, frontpage, featured, slug } = form.getFieldsValue(true)
             const added = await addDoc(collection(firestore, "products"), {
                 name,
                 tags,
                 price: parseFloat(price),
                 active,
-                pictures: modalPics
+                pictures: modalPics,
+                frontpage,
+                featured,
+                slug
                 // price: [price1, price2].filter(e => e)
             })
             setMutateModal({ visible: false })
@@ -81,13 +99,16 @@ const Products = () => {
     const updateProduct = async id => {
         try{
             setLoading(true)
-            const { name, tags, price, active } = form.getFieldsValue(true)
+            const { name, tags, price, active, frontpage, featured, slug } = form.getFieldsValue(true)
             const updated = await setDoc(doc(firestore, "products", id), {
                 name,
                 tags,
                 price: parseFloat(price),
                 active,
-                pictures: modalPics
+                pictures: modalPics,
+                frontpage: !!frontpage,
+                featured: !!featured,
+                slug
             })
             setMutateModal({ visible: false })
             message.success("El producto se ha editado correctamente")
@@ -154,6 +175,20 @@ const Products = () => {
             message.error("Ocurrió un error durante el borrado del pack")
         }
     }
+    const deleteVariant = async ({ id, items }) => {
+        try{
+            const deleted = await deleteDoc(doc(firestore, "variants", id))
+            const proms = items.map(async d => {
+                const resp = await updateDoc(doc(firestore, "products", d), { variantGroup: null })
+                return resp
+            })
+            await Promise.all(proms)
+            message.success("El grupo de variantes se ha eliminado correctamente")
+        } catch(err) {
+            console.log(err)
+            message.error("Ocurrió un error durante el borrado del grupo de variantes")
+        }
+    }
 
     const columns = [
         {
@@ -201,7 +236,10 @@ const Products = () => {
                                     name: it.name,
                                     price: it.price,
                                     tags: it.tags,
-                                    active: !!it.active
+                                    active: !!it.active,
+                                    featured: it.featured,
+                                    frontpage: it.frontpage,
+                                    slug: it.slug
                                 })
                                 setSelectedTags(it.tags)
                                 setMutateModal({
@@ -283,10 +321,82 @@ const Products = () => {
         }
     ]
 
+    const columnsVariants = [
+        {
+            title: "Nombre",
+            dataIndex: "name",
+            key: "name"
+        },
+        {
+            title: "Items",
+            render: aaa => Array.isArray(aaa?.items) ? aaa.items.length : "-"
+        },
+        {
+            title: "Opciones",
+            render: it => {
+                return (
+                    <div>
+                        <Tag
+                            onClick={() => {
+                                console.log(it)
+                                formVariant.setFieldsValue({
+                                    name: it.name,
+                                })
+                                setSelectedVariantItems((it?.items || []).map(vId => products.find(p => p.id === vId)))
+                                setMutateModalVariants({
+                                    visible: true,
+                                    edit: true,
+                                    id: it.id
+                                })
+                            }}
+                        ><EditOutlined /></Tag>
+                        &nbsp;
+                        <Tag 
+                            color="volcano"
+                            onClick={() => {
+                                estaSeguroDeQue({
+                                    desea: "eliminar",
+                                    esto: it.name,
+                                    loading,
+                                    fn: async () => {
+                                        setLoadingVariants(true)
+                                        await deleteVariant(it)
+                                        setLoadingVariants(false)
+                                    }
+                                })
+                            }}
+                        ><DeleteOutlined /></Tag>
+                    </div>
+                )
+            }
+        }
+    ]
+
     useEffect(() => {
         const filteredProducts = basicSearch(search, products, ["name"])
         setFilteredProducts(filteredProducts)
     }, [products, search])
+
+    const autogenerateSlug = () => {
+        console.log("slug!!")
+        const name = form.getFieldValue("name")
+        let flag = false
+        let letsTry = _.kebabCase(name)
+        while(!flag){
+            if(slugs.includes(letsTry)){
+                const splitted = letsTry.split("-")
+                const lastChunk = parseInt(splitted.slice(-1)[0])
+                if(!Number.isNaN(parseInt(lastChunk))){
+                    letsTry = [...splitted.slice(0, -1), lastChunk+1].reduce((acc, it) => acc + "-" + it)
+                } else {
+                    letsTry = letsTry + "-2"
+                }
+            } else {
+                flag = true
+            }
+        }
+        form.setFieldsValue({ slug: letsTry })
+    }
 
     return (
         <Container>
@@ -317,6 +427,25 @@ const Products = () => {
                     columns={columns}
                 />
             </div>
+
+            <br />
+
+            <h2>Grupos de variantes</h2>
+            <Button 
+                onClick={() => setMutateModalVariants({ visible: true, edit: false })}
+                onCancel={() => setMutateModalVariants({ visible: false })}
+                style={{ marginBottom: "1em" }}
+            >Crear grupo de variantes</Button>
+
+            <div style={{ width: "100%" }}>
+                <Table
+                    dataSource={variants}
+                    rowKey="id"
+                    columns={columnsVariants}
+                />
+            </div>
+
+            <br />
 
             <h2>Packs</h2>
             <Button 
@@ -353,6 +482,24 @@ const Products = () => {
                     >
                         <Input />
                     </Form.Item>
+                    <Form.Item
+                        name="slug"
+                        label="Slug"
+                        rules={[{ required: true, message: "Campo requerido" }]}
+                    >
+                        <Input 
+                            suffix={
+                                <Button
+                                    type="primary"
+                                    size="small"
+                                    onClick={autogenerateSlug}
+                                >
+                                    Auto
+                                </Button>
+                            }
+                        />
+                    </Form.Item>
+
                     <Form.Item
                         name="price"
                         label="Precio"
@@ -444,13 +591,29 @@ const Products = () => {
                             )
                         })}
                     </Form.Item>
-                    <Form.Item
-                        name="active"
-                        label="Activo"
-                        valuePropName='checked'
-                    >
-                        <Checkbox />
-                    </Form.Item>
+                    <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap" }}>
+                        <Form.Item
+                            name="active"
+                            label="Activo"
+                            valuePropName='checked'
+                        >
+                            <Checkbox />
+                        </Form.Item>
+                        <Form.Item
+                            name="featured"
+                            label="Destacado"
+                            valuePropName='checked'
+                        >
+                            <Checkbox />
+                        </Form.Item>
+                        <Form.Item
+                            name="frontpage"
+                            label="Página principal"
+                            valuePropName='checked'
+                        >
+                            <Checkbox />
+                        </Form.Item>
+                    </div>
                 </Form>
                 <div>
                     <Button 
@@ -541,6 +704,118 @@ const Products = () => {
                         formPack.resetFields()
                         setLoadingPack(false)
                         setMutateModalPack({ visible: false })
+                    }}>Cancelar</Button>
+                </div>
+            </Modal>
+
+            <Modal 
+                visible={mutateModalVariants.visible}
+                onCancel={() => setMutateModalVariants({ visible: false })}
+                onOk={() => mutateModalPack?.edit ? updatePack(mutateModalVariants?.id) : createPack()}
+                footer={null}
+            >
+                <h3>{mutateModalVariants?.edit ? "Editar grupo de variantes" : "Nuevo grupo de variantes"}</h3>
+                <Form
+                    form={formVariant}
+                    layout="vertical"
+                    onFinish={async ({ name }) => {
+                        if(mutateModalVariants.edit) {
+                            try{
+                                const thisVariant = variants.find(v => v.id === mutateModalVariants.id)
+                                const deletedFromGroup = _.difference(thisVariant.items, selectedVariantItems.map(svi => svi.id))
+                                const updated = await setDoc(doc(firestore, "variants", mutateModalVariants?.id), {
+                                    name,
+                                    items: selectedVariantItems.map(svi => svi.id)
+                                })
+                                const proms1 = selectedVariantItems.map(async svi => {
+                                    const resp = await updateDoc(doc(firestore, "products", svi.id), { variantGroup: mutateModalVariants.id })
+                                    return resp
+                                })
+                                const proms2 = deletedFromGroup.map(async d => {
+                                    const resp = await updateDoc(doc(firestore, "products", d), { variantGroup: null })
+                                    return resp
+                                })
+                                await Promise.all([...proms1, ...proms2])
+                                setMutateModalVariants({ visible: false })
+                                setSelectedVariantItems([])
+                            } catch(err) {
+                                console.log(err)
+                                message.error("Ocurrió un error al guardar el grupo de variantes")
+                            }
+                        } else {
+                            try{
+                                const added = await addDoc(collection(firestore, "variants"), {
+                                    name,
+                                    items: selectedVariantItems.map(svi => svi.id)
+                                })
+                                const proms = selectedVariantItems.map(async svi => {
+                                    const resp = await updateDoc(doc(firestore, "products", svi.id), { variantGroup: added.id })
+                                    return resp
+                                })
+                                await Promise.all(proms)
+                                setMutateModalVariants({ visible: false })
+                                setSelectedVariantItems([])
+                            } catch(err) {
+                                console.log(err)
+                                message.error("Ocurrió un error al guardar el grupo de variantes")
+                            }
+                        }
+                    }}
+                >
+                    <Form.Item
+                        name="name"
+                        label="Nombre del grupo de variantes"
+                        rules={[{ required: true }]}
+                    >
+                        <Input />
+                    </Form.Item>
+                    <Form.Item
+                        label="Elementos del grupo de variantes"
+                    >
+                        <Select 
+                            showSearch
+                            placeholder="Selecciona productos"
+                            onChange={evt => {
+                                if(!selectedVariantItems.map(svi => svi.id).includes(evt)){
+                                    setSelectedVariantItems([
+                                        ...selectedVariantItems,
+                                        { id: evt, name: products.find(p => p.id === evt)?.name }
+                                    ])
+                                } else {
+                                    message.warning("Ese elemento ya está añadido al grupo de variantes")
+                                }
+                            }}
+                            filterOption={(input, option) => cleanStr(option.label).includes(cleanStr(input))}
+                            options={(products || []).filter(p => !p.variantGroup).map(p => ({ label: p.name, value: p.id }))}
+                        />
+                    </Form.Item>
+                    <div style={{ display: "flex", flexWrap: "wrap" }}>
+                        { selectedVariantItems.map(svi => (
+                            <Tag 
+                                key={`tag-${svi.id}`} 
+                                style={{ pointer: "initial", alignItems: "center", display: "inline-flex", marginBottom: 5 }}
+                            >
+                                { svi.name }&nbsp;
+                                <div 
+                                    style={{ fontSize: 20, marginTop: -5, cursor: "pointer" }}
+                                    onClick={() => setSelectedVariantItems(selectedVariantItems.filter(it => it.id !== svi.id))}
+                                >&times;</div>
+                            </Tag>
+                        ))}
+                    </div>
+                    <br />
+                </Form>
+                <div>
+                    <Button 
+                        type="primary" 
+                        loading={loadingVariants} 
+                        onClick={() => formVariant.submit()}
+                    >{ mutateModalVariants?.edit ? "Editar" : "Crear" }</Button>
+                    &nbsp;&nbsp;
+                    <Button onClick={() => {
+                        formVariant.resetFields()
+                        setLoadingVariants(false)
+                        setMutateModalVariants({ visible: false })
                     }}>Cancelar</Button>
                 </div>
             </Modal>
