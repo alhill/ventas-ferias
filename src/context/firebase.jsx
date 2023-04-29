@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState } from "react";
+import { get } from 'lodash'
 import * as firebase from "firebase/app";
-import { getFirestore, collection } from 'firebase/firestore'
+import { getFirestore, collection, initializeFirestore } from 'firebase/firestore'
 import { getStorage } from 'firebase/storage'
 import { 
   getAuth, 
@@ -26,6 +27,7 @@ const FirebaseContext = createContext(undefined);
 
 function FirebaseProvider({ children }) {
 
+  initializeFirestore(firebaseApp, { ignoreUndefinedProperties: true })
   const firestore = getFirestore(firebaseApp);
   const storage = getStorage()
   const auth = getAuth(firebaseApp);
@@ -36,7 +38,13 @@ function FirebaseProvider({ children }) {
 
   onAuthStateChanged(auth, (user) => {
     if (user) {
-      setUser(user);
+      const admin = (JSON.parse(get(user, "auth.currentUser.reloadUserInfo.customAttributes", "{}")))?.admin
+      if(!admin){
+        logoutUserFromFirebase()
+        setUser(null)
+      } else {
+        setUser(user);
+      }
     } else {
       setUser(null);
     }

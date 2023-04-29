@@ -76,9 +76,12 @@ const Products = () => {
         try{
             setLoading(true)
             // const { name, tags, price1, price2 } = form.getFieldsValue(true)
-            const { name, tags, price, active, frontpage, featured, slug } = form.getFieldsValue(true)
+            const { name, name_en, description, description_en, tags, price, active, frontpage, featured, slug } = form.getFieldsValue(true)
             const added = await addDoc(collection(firestore, "products"), {
                 name,
+                name_en,
+                description,
+                description_en,
                 tags,
                 price: parseFloat(price),
                 active,
@@ -99,9 +102,12 @@ const Products = () => {
     const updateProduct = async id => {
         try{
             setLoading(true)
-            const { name, tags, price, active, frontpage, featured, slug } = form.getFieldsValue(true)
+            const { name, name_en, description, description_en, tags, price, active, frontpage, featured, slug } = form.getFieldsValue(true)
             const updated = await setDoc(doc(firestore, "products", id), {
                 name,
+                name_en,
+                description,
+                description_en,
                 tags,
                 price: parseFloat(price),
                 active,
@@ -234,6 +240,9 @@ const Products = () => {
                             onClick={() => {
                                 form.setFieldsValue({
                                     name: it.name,
+                                    name_en: it.name_en,
+                                    description: it.description,
+                                    description_en: it.description_en,
                                     price: it.price,
                                     tags: it.tags,
                                     active: !!it.active,
@@ -481,6 +490,24 @@ const Products = () => {
                         rules={[{ required: true }]}
                     >
                         <Input />
+                    </Form.Item>
+                    <Form.Item
+                        name="name_en"
+                        label="Nombre (EN)"
+                    >
+                        <Input />
+                    </Form.Item>
+                    <Form.Item
+                        name="description"
+                        label="Descripcion"
+                    >
+                        <Input.TextArea autoSize />
+                    </Form.Item>
+                    <Form.Item
+                        name="description_en"
+                        label="Descripcion (EN)"
+                    >
+                        <Input.TextArea autoSize />
                     </Form.Item>
                     <Form.Item
                         name="slug"

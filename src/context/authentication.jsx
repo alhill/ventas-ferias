@@ -14,13 +14,7 @@ const AuthenticationProvider = ({ children }) => {
     isFetchingUser,
   } = useFirebase();
 
-  const getLoggedUser = () => {
-    const admin = (JSON.parse(get(user, "auth.currentUser.reloadUserInfo.customAttributes", "{}")))?.admin
-    if(!admin){
-      doLogout()
-    }
-    return user
-  };
+  const getLoggedUser = () => user
 
   const doLogin = (email, password) =>
     new Promise(async (resolve, reject) => {
