@@ -1,4 +1,5 @@
 import React, { createContext, ReactNode, useContext } from "react";
+import { get } from 'lodash'
 import { useFirebase } from "./firebase";
 
 
@@ -13,13 +14,18 @@ const AuthenticationProvider = ({ children }) => {
     isFetchingUser,
   } = useFirebase();
 
-  const getLoggedUser = () => user;
+  const getLoggedUser = () => {
+    const admin = (JSON.parse(get(user, "auth.currentUser.reloadUserInfo.customAttributes", "{}")))?.admin
+    if(!admin){
+      doLogout()
+    }
+    return user
+  };
 
   const doLogin = (email, password) =>
     new Promise(async (resolve, reject) => {
       try {
         await doUserLoginOnFirebase(email, password);
-
         resolve();
       } catch (e) {
         reject(e);
@@ -30,7 +36,6 @@ const AuthenticationProvider = ({ children }) => {
     new Promise(async (resolve, reject) => {
       try {
         await createUserOnFirebase(email, password);
-
         resolve();
       } catch (e) {
         reject(e);

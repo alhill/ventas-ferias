@@ -19,11 +19,6 @@ const Container = ({ children }) => {
         <div>
             <Header>
                 <h3 style={{ margin: 0, padding: 0 }}>La buena feria</h3>
-                {/* <div>
-                    <Link to="/productos"><Button>Productos</Button></Link>
-                    <Link to="/eventos"><Button>Eventos</Button></Link>
-                    <Link to="/reservas"><Button>Reservas</Button></Link>
-                </div> */}
                 <Dropdown
                     trigger={['click']}
                     overlay={

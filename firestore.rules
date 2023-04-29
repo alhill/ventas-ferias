@@ -1,9 +1,35 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if
-          request.time < timestamp.date(2022, 12, 8);
+    match /products/{documentId} {
+      allow read: if true
+      allow update, delete, create: if request.auth != null && request.auth.token.admin == true
+    }
+    match /config/{documentId} {
+      allow read: if true
+      allow update, delete, create: if request.auth != null && request.auth.token.admin == true
+    }
+    match /packs/{documentId} {
+      allow read: if true
+      allow update, delete, create: if request.auth != null && request.auth.token.admin == true
+    }
+    match /variants/{documentId} {
+      allow read: if true
+      allow update, delete, create: if request.auth != null && request.auth.token.admin == true
+    }
+    match /events/{documentId} {
+      allow read, update, delete, create: if request.auth != null && request.auth.token.admin == true
+    }
+    match /reservations/{documentId} {
+      allow read, update, delete, create: if request.auth != null && request.auth.token.admin == true
+    }
+    match /users/{userId} {
+      allow read, update, create: if request.auth != null && request.auth.uid == userId
+      allow read, update, create, delete: if request.auth != null && request.auth.token.admin == true
+    }
+    match /users/{userId}/orders/{orderId} {
+      allow read: if request.auth != null && request.auth.uid == userId
+      allow read, update, create, delete: if request.auth != null && request.auth.token.admin == true
     }
   }
 }
