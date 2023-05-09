@@ -302,7 +302,7 @@ const Reservations = () => {
     return (
         <Container>
             <h2>Reservas</h2>
-            <Button
+            {/* <Button
                 onClick={async () => {
                     reservations.forEach(async res => {
                         await updateDoc(doc(firestore, "reservations", res.id), {
@@ -312,7 +312,7 @@ const Reservations = () => {
                 }}
             >
                 boton misterio
-            </Button>
+            </Button> */}
             <div style={{ display: "flex", justifyContent: "center", width: "100%" }}>
                 <div>
                     <Link to="/nueva-reserva"><Button>Crear reserva</Button></Link>

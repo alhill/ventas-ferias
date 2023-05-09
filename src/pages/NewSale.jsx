@@ -333,12 +333,9 @@ const Event = () => {
                             name="paymentMethod"
                             label="Forma de pago"
                             rules={[{ required: true }]}
+                            initialValue="Efectivo"
                         >
-                            <Select
-                                onChange={evt => {
-                                    setPaymentMethod(evt)
-                                }}
-                                >
+                            <Select onChange={evt => { setPaymentMethod(evt) }}>
                                 <Select.Option value="Efectivo">Efectivo</Select.Option>
                                 <Select.Option value="Bizum">Bizum</Select.Option>
                             </Select>

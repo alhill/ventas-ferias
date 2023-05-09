@@ -20,6 +20,9 @@ service cloud.firestore {
     match /events/{documentId} {
       allow read, update, delete, create: if request.auth != null && request.auth.token.admin == true
     }
+    match /events/{documentId}/sales/{saleId} {
+      allow read, update, delete, create: if request.auth != null && request.auth.token.admin == true
+    }
     match /reservations/{documentId} {
       allow read, update, delete, create: if request.auth != null && request.auth.token.admin == true
     }
