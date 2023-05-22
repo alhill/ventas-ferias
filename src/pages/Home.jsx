@@ -3,6 +3,7 @@ import { useAuthentication } from "../context/authentication";
 import { Link } from "react-router-dom";
 import { Container } from "../components";
 import styled from "styled-components";
+import { Button } from "antd";
 
 const Home = () => {
   const { user } = useAuthentication();
@@ -14,6 +15,7 @@ const Home = () => {
           <Link to="/eventos"><BigSquare>Eventos</BigSquare></Link>
           <Link to="/reservas"><BigSquare>Reservas</BigSquare></Link>
           <Link to="/productos"><BigSquare>Productos</BigSquare></Link>
+          <Link to="/tienda"><BigSquare>Tienda</BigSquare></Link>
       </BtnWrapper>
     </Container>
   );

@@ -6,6 +6,7 @@ import Events from './Events'
 import Event from './Event'
 import EventStatus from './EventStatus'
 import Reservations from './Reservations'
+import ConfigShop from './ConfigShop'
 import NewSale from './NewSale'
 
 export {
@@ -17,5 +18,6 @@ export {
     Event,
     EventStatus,
     Reservations,
+    ConfigShop,
     NewSale
 }

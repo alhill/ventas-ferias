@@ -58,7 +58,7 @@ exports.createCheckout = functions.region("europe-west1").https.onCall(async ({ 
     userData
   }
 
-  const docRoute = userId ? `/users/${userId}/checkouts/${checkout.id}` : `/unregisteredCheckouts/${email}/${checkout.id}`
+  const docRoute = userId ? `/users/${userId}/orders/${checkout.id}` : `/unregisteredOrders/${email}/${checkout.id}`
   const resp = await db.doc(docRoute).set(checkoutAndAddress)
 
   if(resp){

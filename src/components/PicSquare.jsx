@@ -1,9 +1,9 @@
 import React from 'react'
 import styled from 'styled-components'
 import { Button, Tag, Tooltip } from 'antd'
-import { CaretLeftOutlined, CaretRightOutlined, PictureOutlined } from '@ant-design/icons'
+import { CaretLeftOutlined, CaretRightOutlined, DeleteOutlined, PictureOutlined } from '@ant-design/icons'
 
-const PicSquare = ({ picList, setPicList, pic, idx }) => {
+const PicSquare = ({ picList, setPicList, pic, idx, destacada }) => {
 
     const movePic = (idx, delta) => {
         if(idx + delta >= 0 && idx + delta < picList.length){
@@ -13,6 +13,10 @@ const PicSquare = ({ picList, setPicList, pic, idx }) => {
                 else if(i === idx + delta){ return picList[idx] }
             }))
         }
+    }
+
+    const deletePic = () => {
+        setPicList(picList.filter((p, i) => idx !== i))
     }
 
     const mainPic = idx => {
@@ -26,25 +30,33 @@ const PicSquare = ({ picList, setPicList, pic, idx }) => {
 
     return (
         <OuterWrapper main={pic?.main}>
-            <img src={pic?.path} />
-            <BtnWrapper>
-                <div className="btn prevBtn" onClick={() => movePic(idx, -1)}>
-                    <CaretLeftOutlined />
-                </div>
-                <Tooltip title="Marcar como imagen destacada">
-                    <div className={`btn mainBtn ${pic.main ? "main" : ""}`} onClick={() => mainPic(idx)}>
-                        <PictureOutlined />
+            <DeleteBtn onClick={() => deletePic()}>
+                <DeleteOutlined />
+            </DeleteBtn>
+            <div style={{ position: "absolute", top: 0, left: 0 }}>
+                <img src={pic?.path || pic?.url} />
+                <BtnWrapper>
+                    <div className="btn prevBtn" onClick={() => movePic(idx, -1)}>
+                        <CaretLeftOutlined />
                     </div>
-                </Tooltip>
-                <div className="btn nextBtn" onClick={() => movePic(idx, 1)}>
-                    <CaretRightOutlined />
-                </div>
-            </BtnWrapper>
+                    { destacada && (
+                        <Tooltip title="Marcar como imagen destacada">
+                            <div className={`btn mainBtn ${pic.main ? "main" : ""}`} onClick={() => mainPic(idx)}>
+                                <PictureOutlined />
+                            </div>
+                        </Tooltip>
+                    )}
+                    <div className="btn nextBtn" onClick={() => movePic(idx, 1)}>
+                        <CaretRightOutlined />
+                    </div>
+                </BtnWrapper>
+            </div>
         </OuterWrapper>
     )
 }
 
 const OuterWrapper = styled.div`
+    position: relative;
     width: 100px;
     height: calc(100px + 2em);
     border: 1px solid ${({ main }) => main ? "red" : "gainsboro"};
@@ -76,6 +88,17 @@ const BtnWrapper = styled.div`
             color: lightgray;
         }
     }
+`
+
+const DeleteBtn = styled.div`
+    position: absolute;
+    z-index: 123;
+    top: 0;
+    right: 0;
+    padding: 0 5px;
+    cursor: pointer;
+    border-radius: 0 0 0 3px;
+    background-color: rgba(255,255,255,0.8);
 `
 
 export default PicSquare

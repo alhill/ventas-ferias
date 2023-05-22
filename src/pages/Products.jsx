@@ -35,7 +35,15 @@ const Products = () => {
         const unsubscribeProducts = onSnapshot(
             query(collection(firestore, "products")),
             qs => {
-                const products = qs.docs.map(doc => ({ ...doc.data(), id: doc.id }))
+                const products = qs.docs.map(doc => {
+                    const data = doc.data()
+                    return {
+                        ...data, 
+                        id: doc.id,
+                        discountedProduct: !!data.discountedPrice
+                    }
+                })
+                console.log(products[0])
                 setProducts(products)
                 setSlugs(products.map(p => p.slug).filter(e => e))
             }
@@ -76,7 +84,7 @@ const Products = () => {
         try{
             setLoading(true)
             // const { name, tags, price1, price2 } = form.getFieldsValue(true)
-            const { name, name_en, description, description_en, tags, price, active, frontpage, featured, slug } = form.getFieldsValue(true)
+            const { name, name_en, description, description_en, tags, price, discountedPrice, discountedProduct, active, frontpage, featured, slug } = form.getFieldsValue(true)
             const added = await addDoc(collection(firestore, "products"), {
                 name,
                 name_en,
@@ -84,6 +92,7 @@ const Products = () => {
                 description_en,
                 tags,
                 price: parseFloat(price),
+                discountedPrice: (discountedPrice && discountedProduct) ? parseFloat(discountedPrice) : null,
                 active,
                 pictures: modalPics,
                 frontpage,
@@ -102,7 +111,7 @@ const Products = () => {
     const updateProduct = async id => {
         try{
             setLoading(true)
-            const { name, name_en, description, description_en, tags, price, active, frontpage, featured, slug } = form.getFieldsValue(true)
+            const { name, name_en, description, description_en, tags, price, discountedPrice, discountedProduct, active, frontpage, featured, slug } = form.getFieldsValue(true)
             const updated = await setDoc(doc(firestore, "products", id), {
                 name,
                 name_en,
@@ -110,6 +119,7 @@ const Products = () => {
                 description_en,
                 tags,
                 price: parseFloat(price),
+                discountedPrice: (discountedPrice && discountedProduct) ? parseFloat(discountedPrice) : null,
                 active,
                 pictures: modalPics,
                 frontpage: !!frontpage,
@@ -205,10 +215,17 @@ const Products = () => {
         },
         {
             title: "Precio",
-            dataIndex: "price",
+            // dataIndex: "price",
             key: "price",
             sorter: (a, b) => basicSorter(a, b, "price"),
-            render: price => price + "€"
+            render: it => {
+                return (
+                    <div>
+                        <span style={{ textDecoration: it.discountedPrice ? "line-through" : "none" }}>{it.price + "€"}</span>
+                        { it.discountedPrice && <strong>&nbsp;&nbsp;{it.discountedPrice + "€"}</strong> }
+                    </div>
+                )
+            }
         },
         {
             title: "Activo",
@@ -244,6 +261,8 @@ const Products = () => {
                                     description: it.description,
                                     description_en: it.description_en,
                                     price: it.price,
+                                    discountedPrice: it.discountedPrice,
+                                    discountedProduct: it.discountedProduct,
                                     tags: it.tags,
                                     active: !!it.active,
                                     featured: it.featured,
@@ -381,7 +400,24 @@ const Products = () => {
         }
     ]
 
+    const holiFn = async () => {
+        const checkouts = (await getDocs(collection(firestore, "/users/RoauX7Kts5ZY0aXAB7uATJnOZ8y2/checkouts"))).docs.map(doc => ({
+            ...doc.data(),
+            path: doc.ref.path.replace("checkouts", "orders")
+        }))
+        console.log(checkouts)
+        for(const moved of checkouts){
+            const singleMoved = await setDoc(doc(firestore, moved.path), _.omit(moved, ["path"]))
+            console.log(394, singleMoved)
+        }
+    }
+
     useEffect(() => {
+        // const allTags = _.uniq(products.map(p => p.tags || []).flat(4));
+        // (async () => {
+        //     const qwe = await setDoc(doc(firestore, "config/1"), { tags: allTags })
+        //     console.log(qwe)
+        // })()
         const filteredProducts = basicSearch(search, products, ["name"])
         setFilteredProducts(filteredProducts)
     }, [products, search])
@@ -411,6 +447,7 @@ const Products = () => {
         <Container>
             <h2>Productos</h2>
 
+            {/* <Button onClick={() => holiFn()}>Holi</Button> */}
             <div style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1em" }}>
                 <Input
                     placeholder="Buscar producto"
@@ -535,6 +572,33 @@ const Products = () => {
                         <Input type="number" suffix="€" />
                     </Form.Item>
                     <Form.Item
+                        name="discountedProduct"
+                        label="Producto rebajado"
+                        valuePropName='checked'
+                    >
+                        <Checkbox />
+                    </Form.Item>
+                    <Form.Item
+                        name="discountedPrice"
+                        label="Precio rebajado"
+                        rules={[{ validator: async (rule, value) => {
+                            console.log(rule, value, form.getFieldValue("price"))
+                            const isDiscounted = form.getFieldValue("discountedProduct")
+                            const parsedValue = parseFloat(value)
+                            if(Number.isNaN(parsedValue)){
+                                throw new Error("El valor es incorrecto")
+                            }
+                            if(isDiscounted && !value){
+                                throw new Error("No se ha introducido un precio rebajado")
+                            }
+                            if(isDiscounted && parsedValue >= form.getFieldValue("price")){
+                                throw new Error("El precio rebajado es mayor o igual que el normal")
+                            }
+                        }}]}
+                    >
+                        <Input type="number" suffix="€" />
+                    </Form.Item>
+                    <Form.Item
                         label="Imágenes"
                     >
                         <PicWrapper>
@@ -545,6 +609,7 @@ const Products = () => {
                                     pic={pic}
                                     idx={i}
                                     key={`pic-${i}`}
+                                    destacada={true}
                                 />
                             })}  
                             <Upload

@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React from "react";
 import { Redirect, Switch, Route } from "react-router-dom";
-import { Home, Login, Register, Products, Events, Event, NewSale, EventStatus, Reservations } from "./pages"
+import { Home, Login, Register, Products, Events, Event, NewSale, EventStatus, Reservations, ConfigShop } from "./pages"
 import { useAuthentication } from "./context/authentication";
 import { Spin } from "antd";
 
@@ -43,6 +43,7 @@ const AuthenticatedApp = () => {
       <Route path="/eventos/:id/resumen" exact><EventStatus /></Route>
       <Route path="/eventos/:id" exact><Event /></Route>
       <Route path="/reservas" exact><Reservations /></Route>
+      <Route path="/tienda" exact><ConfigShop /></Route>
       <Route path="/" exact><Home /></Route>
       <Route path="*">Error 404 - Page not found!</Route>
     </Switch>
