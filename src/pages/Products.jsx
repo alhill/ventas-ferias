@@ -30,6 +30,7 @@ const Products = () => {
     const [loadingVariants, setLoadingVariants] = useState(false)
     const [search, setSearch] = useState("")
     const [selectedVariantItems, setSelectedVariantItems] = useState([])
+    const [productPicsToCheck, setProductPicsToCheck] = useState([])
 
     useEffect(() => {
         const unsubscribeProducts = onSnapshot(
@@ -80,10 +81,15 @@ const Products = () => {
     const [formPack] = Form.useForm()
     const [formVariant] = Form.useForm()
 
+    const checkAndDeletePics = async (pics, picsToCheck) => {
+
+    }
+
     const createProduct = async () => {
         try{
             setLoading(true)
-            // const { name, tags, price1, price2 } = form.getFieldsValue(true)
+
+            await checkAndDeletePics(modalPics, productPicsToCheck)
             const { name, name_en, description, description_en, tags, price, discountedPrice, discountedProduct, active, frontpage, featured, slug } = form.getFieldsValue(true)
             const added = await addDoc(collection(firestore, "products"), {
                 name,
@@ -276,6 +282,7 @@ const Products = () => {
                                     id: it.id
                                 })
                                 setModalPics(it.pictures || [])
+                                setProductPicsToCheck(it.pictures || [])
                             }}
                         ><EditOutlined /></Tag>
                         &nbsp;
@@ -582,10 +589,9 @@ const Products = () => {
                         name="discountedPrice"
                         label="Precio rebajado"
                         rules={[{ validator: async (rule, value) => {
-                            console.log(rule, value, form.getFieldValue("price"))
                             const isDiscounted = form.getFieldValue("discountedProduct")
                             const parsedValue = parseFloat(value)
-                            if(Number.isNaN(parsedValue)){
+                            if(isDiscounted && Number.isNaN(parsedValue)){
                                 throw new Error("El valor es incorrecto")
                             }
                             if(isDiscounted && !value){
@@ -620,17 +626,21 @@ const Products = () => {
                                     const fileName = `${fullName.split(".").slice(0, -1).join(".")}-${new Date().getTime()}.${ext}`
 
                                     if(["jpg", "jpeg", "png", "webp"].includes(ext)){
-                                        const newImgRef = ref(storage, "productImg/" + fileName)
+                                        const route = "productImg/" + fileName
+                                        const newImgRef = ref(storage, route)
                                         try{
                                             const uploaded = await uploadBytes(newImgRef, evt.file)
                                             const url = await getDownloadURL(uploaded.ref)
-                                            setModalPics([
+                                            const mutatedPicList = [
                                                 ...modalPics,
                                                 {
-                                                    path: url,
+                                                    url,
+                                                    route,
                                                     main: modalPics.length === 0 
                                                 }
-                                            ])
+                                            ]
+                                            setModalPics(mutatedPicList)
+                                            setProductPicsToCheck(mutatedPicList)
                                         } catch(err) {
                                             console.log(err)
                                             message.error("Ocurrió un error durante la subida del archivo")

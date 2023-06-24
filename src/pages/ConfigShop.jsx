@@ -47,8 +47,13 @@ const ConfigShop = () => {
         )
 
         for (const picToDelete of picsToDelete){
-            const desertRef = ref(storage, picToDelete);
-            await deleteObject(desertRef)
+            try{
+                const deleteRef = ref(storage, picToDelete);
+                await deleteObject(deleteRef)
+            } catch(err) {
+                console.error(`${picToDelete} cannot be deleted`)
+            }
+            
         }
 
         try{

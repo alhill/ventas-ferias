@@ -8,6 +8,7 @@ import _ from 'lodash';
 import estaSeguroDeQue from '../utils/estaSeguroDeQue';
 import { useHistory, Link } from 'react-router-dom';
 import moment from 'moment'
+import { basicSorter } from '../utils';
 
 const Events = () => {
     const { firestore } = useFirebase()
@@ -21,7 +22,7 @@ const Events = () => {
         const unsubscribeEvents = onSnapshot(
             query(collection(firestore, "events")),
             qs => {
-                const events = qs.docs.map(doc => ({ ...doc.data(), id: doc.id }))
+                const events = qs.docs.map(doc => ({ ...doc.data(), id: doc.id })).sort((a, b) => a?.date?.seconds < b?.date?.seconds ? 1 : -1)
                 setEvents(events)
             }
         )
@@ -79,6 +80,13 @@ const Events = () => {
             title: "Nombre",
             dataIndex: "name",
             key: "name"
+        },
+        {
+            title: "Fecha",
+            dataIndex: "date",
+            key: "date",
+            sorter: (a, b) => basicSorter(a, b, "date.seconds"),
+            render: date => moment(date.seconds, "X").format("DD/MM/YYYY")
         },
         {
             title: "Opciones",

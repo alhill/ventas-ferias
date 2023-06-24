@@ -3,10 +3,11 @@ import React, { useEffect, useState } from 'react'
 import { Container, ProductBtn, PackBtn } from '../components'
 import { useFirebase } from '../context/firebase'
 import { useParams, useHistory, Link } from 'react-router-dom'
-import { Radio, Button, Modal, Form, Select, Input, message } from 'antd'
+import { Radio, Button, Modal, Form, Select, Input, message, Collapse } from 'antd'
 import styled from 'styled-components'
 import _ from 'lodash'
 import { cleanStr } from '../utils'
+import { SearchOutlined } from '@ant-design/icons'
 
 const Event = () => {
 
@@ -25,10 +26,11 @@ const Event = () => {
     const [assignedToEvent, setAssignedToEvent] = useState()
     const [saleStatus, setSaleStatus] = useState({})
     const [packItems, setPackItems] = useState([])
+    const [search, setSearch] = useState("")
     const [modalPackSelector, setModalPackSelector] = useState({ visible: false })
     const [modalEndSale, setModalEndSale] = useState({ visible: false })
     const [modalTotal, setModalTotal] = useState()
-    const [paymentMethod, setPaymentMethod] = useState()
+    const [paymentMethod, setPaymentMethod] = useState("Efectivo")
     const [reservationMethod, setReservationMethod] = useState()
     const [inputMoney, setInputMoney] = useState()
     const [loadingSale, setLoadingSale] = useState(false)
@@ -114,6 +116,19 @@ const Event = () => {
         }
     }, [modalEndSale])
 
+    useEffect(() => {
+        if(search){
+            setSelectedTag(undefined)
+            const filteredProducts = products.filter(fp => {
+                return cleanStr(fp.name).includes(cleanStr(search))
+            })
+            setFilteredProducts(filteredProducts)
+        } else {
+            setFilteredProducts(products)
+        }
+
+    }, [search])
+
     const calculateTotal = () => {
         const reducito = Object.entries(saleStatus).reduce((acc, it) => {
             const product = [...products, ...packs].find(p => p.id === it[0])
@@ -151,6 +166,15 @@ const Event = () => {
                     )
                 })}
             </Radio.Group>
+
+            <br />
+
+            <Input 
+                prefix={<SearchOutlined />}
+                value={search}
+                onChange={evt => setSearch(evt.target.value)}
+                allowClear
+            />
 
             <br />
 
@@ -296,13 +320,6 @@ const Event = () => {
                         setLoadingSale(false)
                     }}
                 >
-                    <Form.Item
-                        name="name"
-                        label="Nombre del cliente"
-                        rules={isReservation ? [{ required: true }] : []}
-                    >
-                        <Input />
-                    </Form.Item>
                     { isReservation && (
                         <Form.Item
                             label="Método de contacto"
@@ -360,12 +377,6 @@ const Event = () => {
                             </Select>
                         </Form.Item>
                     )}
-                    <Form.Item
-                        name="observations"
-                        label="Observaciones"
-                    >
-                        <Input.TextArea />
-                    </Form.Item>
 
                     { paymentMethod === "Efectivo" && (
                         <div>
@@ -391,6 +402,24 @@ const Event = () => {
                             </Form.Item>
                         </div>
                     )}
+
+                    <Collapse>
+                        <Collapse.Panel header="Datos opcionales">
+                            <Form.Item
+                                name="name"
+                                label="Nombre del cliente"
+                                rules={isReservation ? [{ required: true }] : []}
+                                >
+                                <Input />
+                            </Form.Item>
+                            <Form.Item
+                                name="observations"
+                                label="Observaciones"
+                                >
+                                <Input.TextArea />
+                            </Form.Item>
+                        </Collapse.Panel>
+                    </Collapse>
                 </Form>
 
                 <br />
